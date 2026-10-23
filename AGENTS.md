@@ -61,3 +61,10 @@ venderse y ser usada por muchas personas. Debe ser personalizable por marca
 2. Resumen de 3-4 líneas de lo hecho.
 3. Pasos para probarlo.
 4. Decisiones que tomaste por tu cuenta y que debo revisar.
+
+# ESTADO DEL PROYECTO
+- Fase 1 completada: Next.js, ASP.NET Core, EF Core y configuración central de marca.
+- Fase 2 completada: catálogo EF Core, migración SQL Server, seed de desarrollo, API de lectura,
+  listado y detalle en Next.js, filtros y conversión de monedas DOP/USD/EUR.
+- SQL Server local: `DigiStylesDev` con Windows Authentication.
+- Pendiente: aprobación antes de iniciar la Fase 3 (diseño, animaciones y transición de producto).
