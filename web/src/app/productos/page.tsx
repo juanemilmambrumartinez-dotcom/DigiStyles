@@ -28,16 +28,19 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
 
   return (
     <main className="mx-auto w-full max-w-6xl overflow-x-hidden px-4 py-8 sm:px-6">
-      <div className="mb-6 flex items-end justify-between gap-4">
-        <div><p className="text-sm text-accent">Colección</p><h1 className="text-3xl font-bold">Productos</h1></div>
+      <div className="mb-8 border-b-[var(--brand-border-width)] border-foreground pb-5">
+        <p className="detail-mono text-sm uppercase text-accent">Colección / {data.items.length}</p>
+        <h1 className="mt-2 text-5xl leading-none sm:text-7xl">Productos</h1>
       </div>
       <CatalogFilters currency={currency} initial={{ ...normalized, minDisplayPrice: normalized.minPrice ? String(convertFromBase(Number(normalized.minPrice), currency)) : "", maxDisplayPrice: normalized.maxPrice ? String(convertFromBase(Number(normalized.maxPrice), currency)) : "" }} />
       {data.items.length === 0 ? <p className="py-12 text-center text-foreground-soft">No hay productos que coincidan con los filtros.</p> : (
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-8 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
           {data.items.map((product) => (
-            <Link key={product.id} href={`/productos/${product.slug}`} className="overflow-hidden rounded-lg border border-white/10 bg-black/20">
-              <div className="aspect-square bg-white/5" />
-              <div className="p-4"><p className="text-xs uppercase text-foreground-soft">{product.brand}</p><h2 className="mt-1 font-semibold">{product.name}</h2><p className="mt-3 text-lg font-bold text-accent">{formatPrice(product.price, currency)}</p></div>
+            <Link key={product.id} href={`/productos/${product.slug}`} className="brutal-card group overflow-hidden bg-[var(--brand-surface)]">
+              <div className="relative aspect-square border-b-[var(--brand-border-width)] border-foreground bg-background">
+                <span className="glass-layer detail-mono absolute bottom-3 right-3 px-3 py-2 text-sm text-foreground">{formatPrice(product.price, currency)}</span>
+              </div>
+              <div className="p-4"><p className="detail-mono text-xs uppercase text-foreground-soft">{product.brand}</p><h2 className="mt-2 text-2xl group-hover:text-accent">{product.name}</h2></div>
             </Link>
           ))}
         </div>

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { brand } from "@/config/brand.config";
@@ -12,11 +13,22 @@ export async function SiteHeader() {
     : brand.monedaPredeterminada;
 
   return (
-    <header className="border-b border-white/10 bg-background">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6">
-        <Link href="/" className="font-bold text-foreground">{brand.nombre}</Link>
-        <nav className="flex flex-wrap items-center justify-end gap-3" aria-label="Principal">
-          <Link href="/productos" className="text-sm text-foreground-soft hover:text-foreground">Productos</Link>
+    <header className="glass-layer sticky top-0 z-[100] border-x-0 border-t-0 px-4 py-3 sm:px-6">
+      <div className="relative z-[101] mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
+        <Link href="/" className="flex items-center text-xl font-black uppercase text-foreground" aria-label={brand.nombre}>
+          <Image
+            src={brand.logo.src}
+            alt={brand.logo.alt}
+            width={brand.logo.width}
+            height={brand.logo.height}
+            className="h-10 w-auto object-contain"
+            priority
+          />
+        </Link>
+        <nav className="flex flex-wrap items-center justify-end gap-5" aria-label="Principal">
+          <Link href="/productos" className="text-sm font-bold uppercase text-foreground hover:text-accent">
+            Productos
+          </Link>
           <CurrencySelector value={currency} />
         </nav>
       </div>

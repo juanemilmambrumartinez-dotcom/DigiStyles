@@ -22,16 +22,16 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   }
 
   return (
-    <main className="mx-auto grid max-w-5xl gap-8 px-4 py-8 sm:px-6 md:grid-cols-2">
-      <div className="aspect-square rounded-lg bg-white/5" role="img" aria-label={`Imagen de ${product.name}`} />
+    <main className="mx-auto grid max-w-7xl gap-8 px-4 py-8 sm:px-6 md:grid-cols-2">
+      <div className="brutal-card aspect-square bg-[var(--brand-surface)]" role="img" aria-label={`Imagen de ${product.name}`} />
       <section>
-        <p className="text-sm uppercase text-accent">{product.brand}</p>
-        <h1 className="mt-2 text-3xl font-bold">{product.name}</h1>
-        <p className="mt-4 text-foreground-soft">{product.description}</p>
-        <p className="mt-6 text-3xl font-bold">{formatPrice(product.basePrice, currency)}</p>
-        <h2 className="mt-8 font-semibold">Variantes</h2>
-        <div className="mt-3 grid gap-2">
-          {product.variants.map((variant) => <div key={variant.id} className="flex justify-between rounded border border-white/10 p-3"><span>{variant.size} · {variant.color}</span><span>{variant.stock > 0 ? `${variant.stock} disponibles` : "Agotado"}</span></div>)}
+        <p className="detail-mono text-sm uppercase text-accent">{product.brand}</p>
+        <h1 className="mt-2 text-5xl leading-none sm:text-7xl">{product.name}</h1>
+        <p className="mt-5 max-w-xl text-foreground-soft">{product.description}</p>
+        <p className="detail-mono mt-6 border-y-[var(--brand-border-width)] border-foreground py-4 text-4xl font-bold">{formatPrice(product.basePrice, currency)}</p>
+        <h2 className="mt-8 text-2xl">Variantes</h2>
+        <div className="mt-3 grid gap-3">
+          {product.variants.map((variant) => <div key={variant.id} className="detail-mono flex justify-between border-[var(--brand-border-width)] border-foreground bg-[var(--brand-surface)] p-3"><span>{variant.size} / {variant.color}</span><span>{variant.stock > 0 ? `${variant.stock} disponibles` : "Agotado"}</span></div>)}
         </div>
       </section>
     </main>
