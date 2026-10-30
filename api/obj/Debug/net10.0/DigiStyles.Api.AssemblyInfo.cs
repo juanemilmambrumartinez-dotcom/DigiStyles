@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("DigiStyles.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9f32cdf0e42054e6be2f81d3f67bae0bc7286843")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c83deedc6d009378ac3b389718e29995e3959473")]
 [assembly: System.Reflection.AssemblyProductAttribute("DigiStyles.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("DigiStyles.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

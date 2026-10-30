@@ -15,6 +15,7 @@ export function CurrencySelector({ value }: { value: CurrencyCode }) {
   const router = useRouter();
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const listboxRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(Math.max(0, currencies.indexOf(value)));
   const selected = brand.monedas[value];
@@ -28,6 +29,10 @@ export function CurrencySelector({ value }: { value: CurrencyCode }) {
     return () => document.removeEventListener("pointerdown", closeOutside);
   }, []);
 
+  useEffect(() => {
+    if (open) listboxRef.current?.focus();
+  }, [open]);
+
   function changeCurrency(currency: CurrencyCode) {
     persistCurrency(currency);
     setOpen(false);
@@ -39,6 +44,10 @@ export function CurrencySelector({ value }: { value: CurrencyCode }) {
       event.preventDefault();
       setOpen(true);
       setActiveIndex(Math.max(0, currencies.indexOf(value)));
+    }
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      setOpen((current) => !current);
     }
     if (event.key === "Escape") setOpen(false);
   }
@@ -63,15 +72,16 @@ export function CurrencySelector({ value }: { value: CurrencyCode }) {
   }
 
   return (
-    <div ref={rootRef} className="relative z-[110] detail-mono text-sm text-foreground">
+    <div ref={rootRef} className="relative z-[210] detail-mono text-sm text-foreground">
       <span className="mr-2 hidden uppercase sm:inline">Moneda</span>
       <button
         ref={triggerRef}
         type="button"
-        className="liquid-glass min-w-24 px-3 py-2 text-left uppercase"
+        className="t-button min-w-24 border-[var(--brand-border-width)] border-foreground bg-surface px-3 py-2 text-left uppercase"
         aria-label={`Moneda: ${selected.codigo} ${selected.simbolo}`}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-controls="currency-listbox"
         onClick={() => setOpen((current) => !current)}
         onKeyDown={handleTriggerKeyDown}
       >
@@ -80,10 +90,12 @@ export function CurrencySelector({ value }: { value: CurrencyCode }) {
       </button>
       {open && (
         <div
+          id="currency-listbox"
+          ref={listboxRef}
           role="listbox"
           aria-label="Seleccionar moneda"
           tabIndex={-1}
-          className="liquid-glass absolute right-0 top-[calc(100%+0.5rem)] z-[120] min-w-full overflow-hidden"
+          className={`t-dropdown liquid-glass absolute right-0 top-[calc(100%+0.5rem)] z-[220] min-w-full overflow-hidden ${open ? "is-open" : ""}`}
           onKeyDown={handleListKeyDown}
         >
           {currencies.map((code, index) => {
@@ -95,7 +107,7 @@ export function CurrencySelector({ value }: { value: CurrencyCode }) {
                 role="option"
                 aria-selected={code === value}
                 tabIndex={activeIndex === index ? 0 : -1}
-                className={`block w-full px-3 py-2 text-left uppercase hover:bg-accent hover:text-background ${code === value ? "text-accent" : ""}`}
+                className={`t-button block w-full px-3 py-2 text-left uppercase hover:bg-accent hover:text-background ${code === value ? "font-bold text-foreground" : ""}`}
                 onMouseEnter={() => setActiveIndex(index)}
                 onClick={() => changeCurrency(code)}
               >

@@ -59,6 +59,7 @@ venderse y ser usada por muchas personas. Debe ser personalizable por marca
 # FORMATO DE SALIDA EN CADA FASE
 1. Crea o edita los archivos directamente en el proyecto.
 2. Resumen de 3-4 líneas de lo hecho.
+
 3. Pasos para probarlo.
 4. Decisiones que tomaste por tu cuenta y que debo revisar.
 

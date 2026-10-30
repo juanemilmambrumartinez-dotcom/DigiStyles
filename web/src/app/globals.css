@@ -5,13 +5,20 @@
   --foreground: var(--brand-text);
   --foreground-soft: var(--brand-text-soft);
   --accent: var(--brand-accent);
+  --accent-hover: var(--brand-accent-hover);
+  --secondary: var(--brand-secondary);
+  --divider: var(--brand-divider);
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--brand-surface);
   --color-foreground: var(--foreground);
   --color-foreground-soft: var(--foreground-soft);
   --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-secondary: var(--secondary);
+  --color-divider: var(--divider);
   --font-sans: var(--font-digistyles-display);
   --font-mono: var(--font-digistyles-mono);
 }
@@ -29,8 +36,8 @@ body {
   min-width: 320px;
   background-color: var(--background);
   background-image:
-    linear-gradient(rgba(245, 245, 245, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(245, 245, 245, 0.035) 1px, transparent 1px);
+    linear-gradient(var(--brand-divider) 1px, transparent 1px),
+    linear-gradient(90deg, var(--brand-divider) 1px, transparent 1px);
   background-size: 32px 32px;
   color: var(--foreground);
   font-family: var(--font-digistyles-display), sans-serif;
@@ -48,6 +55,12 @@ h3 {
   margin: 0;
   font-family: var(--font-digistyles-display), sans-serif;
   text-transform: uppercase;
+  text-wrap: balance;
+}
+
+p {
+  max-width: 75ch;
+  text-wrap: pretty;
 }
 
 ::selection {
@@ -55,14 +68,8 @@ h3 {
   color: var(--background);
 }
 
-.glass-layer {
-  border: 1px solid var(--brand-glass-border);
-  border-radius: var(--brand-radius);
-  background: var(--brand-glass-fallback);
-}
-
 .liquid-glass {
-  border: 1px solid transparent;
+  border: var(--brand-border-width) solid transparent;
   border-radius: var(--brand-radius);
   background:
     linear-gradient(var(--brand-glass-bg), var(--brand-glass-bg)) padding-box,
@@ -84,12 +91,103 @@ h3 {
   border: var(--brand-border-width) solid var(--foreground);
   border-radius: var(--brand-radius);
   box-shadow: var(--brand-shadow-x) var(--brand-shadow-y) 0 var(--foreground);
-  transition: transform 160ms ease, box-shadow 160ms ease;
+  transition:
+    transform var(--motion-medium) var(--motion-ease-out),
+    box-shadow var(--motion-medium) var(--motion-ease-out);
 }
 
 .brutal-card:hover {
-  transform: translate(calc(var(--brand-shadow-x) * -0.35), calc(var(--brand-shadow-y) * -0.35));
-  box-shadow: calc(var(--brand-shadow-x) * 1.35) calc(var(--brand-shadow-y) * 1.35) 0 var(--accent);
+  transform: translate(calc(var(--motion-distance-hover) * -1), calc(var(--motion-distance-hover) * -1));
+  box-shadow: calc(var(--brand-shadow-x) * 1.35) calc(var(--brand-shadow-y) * 1.35) 0 var(--foreground);
+}
+
+.brutal-card:active {
+  transform: translate(var(--motion-distance-press), var(--motion-distance-press));
+  box-shadow: calc(var(--brand-shadow-x) * 0.5) calc(var(--brand-shadow-y) * 0.5) 0 var(--foreground);
+}
+
+.t-button {
+  min-height: 40px;
+  transition:
+    transform var(--motion-medium) var(--motion-ease-out),
+    box-shadow var(--motion-medium) var(--motion-ease-out);
+}
+
+.t-button:hover {
+  transform: translate(calc(var(--motion-distance-hover) * -1), calc(var(--motion-distance-hover) * -1));
+  box-shadow: var(--motion-distance-hover) var(--motion-distance-hover) 0 var(--foreground);
+}
+
+.t-button:active {
+  transform: translate(var(--motion-distance-press), var(--motion-distance-press));
+  box-shadow: 1px 1px 0 var(--foreground);
+}
+
+.t-dropdown,
+.t-panel,
+.t-modal {
+  transition:
+    opacity var(--motion-enter) var(--motion-ease-out),
+    transform var(--motion-enter) var(--motion-ease-out),
+    visibility 0s linear var(--motion-enter);
+}
+
+.t-dropdown {
+  opacity: 0;
+  transform: translateY(-0.5rem);
+  visibility: hidden;
+  transition:
+    opacity var(--motion-fast) var(--motion-ease-in),
+    transform var(--motion-fast) var(--motion-ease-in),
+    visibility 0s linear var(--motion-fast);
+}
+
+.t-dropdown.is-open,
+.t-panel.is-open,
+.t-modal.is-open {
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
+  transition:
+    opacity var(--motion-enter) var(--motion-ease-out),
+    transform var(--motion-enter) var(--motion-ease-out),
+    visibility 0s linear 0s;
+}
+
+.t-panel:not(.is-open),
+.t-modal:not(.is-open) {
+  transition-duration: var(--motion-fast), var(--motion-fast), var(--motion-fast);
+}
+
+.t-panel {
+  transform: translateY(0.5rem);
+}
+
+.t-modal {
+  transform: translateY(0.75rem);
+}
+
+.price-value {
+  font-variant-numeric: tabular-nums;
+  transition:
+    opacity var(--motion-fast) var(--motion-ease-out),
+    transform var(--motion-fast) var(--motion-ease-out);
+
+  @starting-style {
+    opacity: 0;
+    transform: translateY(0.25rem);
+  }
+}
+
+.count-badge {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+  animation: count-pop var(--motion-fast) var(--motion-ease-out);
+}
+
+:focus-visible {
+  outline: var(--brand-border-width) solid var(--accent);
+  outline-offset: 3px;
 }
 
 .detail-mono {
@@ -102,6 +200,7 @@ h3 {
   z-index: -1;
   overflow: hidden;
   pointer-events: none;
+  will-change: transform, opacity;
 }
 
 .ambient-background::before,
@@ -112,20 +211,20 @@ h3 {
   height: 48vw;
   opacity: 0.16;
   transform: translate3d(0, 0, 0);
-  animation: ambient-drift 28s ease-in-out infinite alternate;
+  animation: ambient-drift var(--motion-ambient) var(--motion-ease-out) infinite alternate;
 }
 
 .ambient-background::before {
   left: -12vw;
   top: 12vh;
-  background: radial-gradient(circle, var(--brand-accent) 0, transparent 68%);
+  background: radial-gradient(circle, var(--brand-secondary) 0, transparent 68%);
 }
 
 .ambient-background::after {
   right: -16vw;
   bottom: -12vh;
-  background: radial-gradient(circle, var(--brand-text) 0, transparent 68%);
-  animation-duration: 34s;
+  background: radial-gradient(circle, var(--brand-accent) 0, transparent 68%);
+  animation-duration: var(--motion-ambient-secondary);
   animation-direction: alternate-reverse;
 }
 
@@ -137,14 +236,24 @@ h3 {
 .marquee-track {
   display: flex;
   width: max-content;
-  animation: marquee 18s linear infinite;
+  animation: marquee var(--motion-marquee) linear infinite;
+  will-change: transform;
 }
 
 @keyframes marquee {
   to { transform: translateX(-50%); }
 }
 
+@keyframes count-pop {
+  from { opacity: 0.4; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
 @media (max-width: 640px) {
+  .t-button {
+    min-height: 44px;
+  }
+
   .ambient-background::before,
   .ambient-background::after {
     animation: none;
@@ -152,8 +261,7 @@ h3 {
   }
 
   @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    .liquid-glass,
-    .glass-layer {
+    .liquid-glass {
       backdrop-filter: blur(var(--brand-glass-blur-mobile)) saturate(var(--brand-glass-saturation));
       -webkit-backdrop-filter: blur(var(--brand-glass-blur-mobile)) saturate(var(--brand-glass-saturation));
     }
@@ -168,5 +276,9 @@ h3 {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .count-badge {
+    animation: none;
   }
 }

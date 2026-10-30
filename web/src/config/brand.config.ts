@@ -4,10 +4,10 @@ export const brand = {
   monedaBase: "DOP",
   monedaPredeterminada: "DOP",
   logo: {
-    src: "/logo.svg",
-    alt: "JVM / DigiStyles",
-    width: 180,
-    height: 64,
+    src: "/logo.png",
+    alt: "DigiStyles",
+    width: 44,
+    height: 44,
   },
   // Tasas de ejemplo: deben actualizarse manualmente antes de publicar.
   ratesUpdatedAt: "2026-10-22",
@@ -17,11 +17,14 @@ export const brand = {
     EUR: { codigo: "EUR", simbolo: "€", locale: "es-ES", tasaDesdeDop: 0.016 },
   },
   colores: {
-    fondo: "#090909",
-    superficie: "#151515",
-    acento: "#d8ff3e",
-    texto: "#f5f5f5",
-    textoSuave: "#a3a3a3",
+    fondo: "#FFF4E6",
+    superficie: "#FFFAF2",
+    divisor: "#F3E2CC",
+    acento: "#DC143C",
+    acentoHover: "#B80F31",
+    secundario: "#FFAB7A",
+    texto: "#2A0E12",
+    textoSuave: "#5C3338",
   },
   tipografia: {
     titular: "var(--font-digistyles-display)",
@@ -33,12 +36,28 @@ export const brand = {
     sombraXpx: 6,
     sombraYpx: 6,
   },
+  movimiento: {
+    duracionRapidaMs: 120,
+    duracionMediaMs: 200,
+    duracionEntradaMs: 320,
+    easingSalida: "cubic-bezier(0.16, 1, 0.3, 1)",
+    easingEntrada: "cubic-bezier(0.7, 0, 0.84, 0)",
+    distanciaHoverPx: 2,
+    distanciaPressPx: 1,
+    duracionAmbientalS: 42,
+    duracionAmbientalSecundariaS: 52,
+    duracionMarquesinaS: 18,
+  },
   cristal: {
     desenfoquePx: 12,
     desenfoqueMovilPx: 6,
-    fondo: "rgba(9, 9, 9, 0.88)",
-    fondoFallback: "#090909",
-    borde: "rgba(245, 245, 245, 0.28)",
+    fondo: "rgba(255, 244, 230, 0.88)",
+    fondoFallback: "rgba(255, 244, 230, 0.96)",
+    borde: "rgba(243, 226, 204, 0.92)",
+    luz: "rgba(255, 250, 242, 0.96)",
+    brilloInterno: "rgba(255, 250, 242, 0.72)",
+    sombraInterna: "rgba(42, 14, 18, 0.12)",
+    saturacion: 135,
     maximoVisible: 3,
   },
   textos: {
@@ -46,5 +65,3 @@ export const brand = {
     descripcion: "Base del proyecto configurada y lista para construir el catálogo.",
   },
 } as const;
-
-
