@@ -43,7 +43,7 @@ public static class CatalogSeed
             IsActive = true,
             Category = category,
             Variants = [new ProductVariant { Size = category.Slug == "ropa" ? "M" : category.Slug == "tenis" ? "42" : "Único", Color = option.color, Stock = stock, OverridePrice = option.overridePrice }],
-            Images = [new ProductImage { Url = $"/placeholders/catalog-{category.Slug}.svg", SortOrder = 1 }]
+            Images = [new ProductImage { Url = $"/placeholders/placeholder-{category.Slug}.svg", SortOrder = 1 }]
         };
     }
 }

@@ -29,6 +29,7 @@
 
 html {
   background: var(--background);
+  overflow-x: clip;
 }
 
 body {
@@ -88,39 +89,91 @@ p {
 }
 
 .brutal-card {
+  isolation: isolate;
+  position: relative;
   border: var(--brand-border-width) solid var(--foreground);
   border-radius: var(--brand-radius);
-  box-shadow: var(--brand-shadow-x) var(--brand-shadow-y) 0 var(--foreground);
-  transition:
-    transform var(--motion-medium) var(--motion-ease-out),
-    box-shadow var(--motion-medium) var(--motion-ease-out);
+  transition: transform var(--motion-medium) var(--motion-ease-out);
+}
+
+.brutal-card::after,
+.t-button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background: var(--foreground);
+  pointer-events: none;
+  transition: transform var(--motion-medium) var(--motion-ease-out);
+}
+
+.brutal-card::before,
+.t-button::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: inherit;
+  pointer-events: none;
+}
+
+.brutal-card::after {
+  transform: translate(var(--brand-shadow-x), var(--brand-shadow-y));
 }
 
 .brutal-card:hover {
   transform: translate(calc(var(--motion-distance-hover) * -1), calc(var(--motion-distance-hover) * -1));
-  box-shadow: calc(var(--brand-shadow-x) * 1.35) calc(var(--brand-shadow-y) * 1.35) 0 var(--foreground);
+}
+
+.brutal-card:hover::after {
+  transform: translate(calc(var(--brand-shadow-x) * 1.35), calc(var(--brand-shadow-y) * 1.35));
 }
 
 .brutal-card:active {
   transform: translate(var(--motion-distance-press), var(--motion-distance-press));
-  box-shadow: calc(var(--brand-shadow-x) * 0.5) calc(var(--brand-shadow-y) * 0.5) 0 var(--foreground);
+}
+
+.brutal-card:active::after {
+  transform: translate(calc(var(--brand-shadow-x) * 0.5), calc(var(--brand-shadow-y) * 0.5));
 }
 
 .t-button {
+  isolation: isolate;
   min-height: 40px;
-  transition:
-    transform var(--motion-medium) var(--motion-ease-out),
-    box-shadow var(--motion-medium) var(--motion-ease-out);
+  position: relative;
+  transition: transform var(--motion-medium) var(--motion-ease-out);
 }
 
 .t-button:hover {
   transform: translate(calc(var(--motion-distance-hover) * -1), calc(var(--motion-distance-hover) * -1));
-  box-shadow: var(--motion-distance-hover) var(--motion-distance-hover) 0 var(--foreground);
+}
+
+.t-button::after {
+  transform: translate(0, 0);
+}
+
+.t-button:hover::after {
+  transform: translate(var(--motion-distance-hover), var(--motion-distance-hover));
 }
 
 .t-button:active {
   transform: translate(var(--motion-distance-press), var(--motion-distance-press));
-  box-shadow: 1px 1px 0 var(--foreground);
+}
+
+.t-button:active::after {
+  transform: translate(1px, 1px);
+}
+
+.brutal-card.t-button::after {
+  transform: translate(var(--brand-shadow-x), var(--brand-shadow-y));
+}
+
+.brutal-card.t-button:hover::after {
+  transform: translate(var(--motion-distance-hover), var(--motion-distance-hover));
+}
+
+.brutal-card.t-button:active::after {
+  transform: translate(1px, 1px);
 }
 
 .t-dropdown,
@@ -142,7 +195,7 @@ p {
     visibility 0s linear var(--motion-fast);
 }
 
-.t-dropdown.is-open,
+  .t-dropdown[data-state="open"],
 .t-panel.is-open,
 .t-modal.is-open {
   opacity: 1;
@@ -152,6 +205,43 @@ p {
     opacity var(--motion-enter) var(--motion-ease-out),
     transform var(--motion-enter) var(--motion-ease-out),
     visibility 0s linear 0s;
+}
+
+.currency-trigger {
+  border: var(--brand-border-width) solid var(--foreground);
+  color: var(--foreground);
+  background: var(--background);
+}
+
+.currency-trigger::before,
+.currency-trigger::after {
+  display: none;
+}
+
+.currency-panel {
+  border: var(--brand-border-width) solid var(--foreground);
+  color: var(--foreground);
+  background: var(--brand-glass-bg);
+}
+
+.currency-option {
+  min-height: 40px;
+  color: var(--foreground);
+  background: transparent;
+  transition: background-color var(--motion-fast) var(--motion-ease-out), color var(--motion-fast) var(--motion-ease-out);
+}
+
+.currency-option[aria-selected="true"] {
+  background: var(--accent);
+  color: var(--background);
+  font-weight: 700;
+}
+
+.currency-option[data-active="true"]:not([aria-selected="true"]),
+.currency-option:hover:not([aria-selected="true"]),
+.currency-option:focus-visible:not([aria-selected="true"]) {
+  background: var(--secondary);
+  color: var(--foreground);
 }
 
 .t-panel:not(.is-open),
@@ -188,6 +278,26 @@ p {
 :focus-visible {
   outline: var(--brand-border-width) solid var(--accent);
   outline-offset: 3px;
+}
+
+.skip-link {
+  position: fixed;
+  left: 1rem;
+  top: 1rem;
+  z-index: 1000;
+  padding: 0.75rem 1rem;
+  background: var(--accent);
+  color: var(--background);
+  font-family: var(--font-digistyles-mono), monospace;
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  transform: translateY(-200%);
+  transition: transform var(--motion-fast) var(--motion-ease-out);
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
 }
 
 .detail-mono {
@@ -240,6 +350,32 @@ p {
   will-change: transform;
 }
 
+.hero-copy {
+  container-type: inline-size;
+}
+
+.hero-title {
+  white-space: nowrap;
+  font-size: min(calc(100cqi / 6.4), 9rem);
+  text-wrap: nowrap;
+  text-shadow: var(--brand-shadow-x) var(--brand-shadow-y) var(--secondary);
+}
+
+.hero-letter {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(1.25rem);
+  animation: hero-letter-in var(--motion-enter) var(--motion-ease-out) forwards;
+  animation-delay: calc(var(--letter-index) * 55ms);
+}
+
+@keyframes hero-letter-in {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @keyframes marquee {
   to { transform: translateX(-50%); }
 }
@@ -280,5 +416,12 @@ p {
 
   .count-badge {
     animation: none;
+  }
+
+  .hero-letter,
+  .marquee-track {
+    animation: none;
+    opacity: 1;
+    transform: none;
   }
 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { CatalogFilters } from "@/components/catalog/CatalogFilters";
+import { ProductImage } from "@/components/catalog/ProductImage";
 import { brand } from "@/config/brand.config";
 import { currencyCookieName, formatPrice, isCurrencyCode, convertFromBase, type CurrencyCode } from "@/lib/currency";
 import { fetchCatalog, type ProductPageResponse } from "@/lib/catalog-api";
@@ -23,11 +24,11 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
     const response = await fetchCatalog(`/api/products?${apiParams}`);
     data = await response.json();
   } catch {
-    return <main className="mx-auto max-w-6xl px-4 py-10"><p role="alert">No se pudo cargar el catálogo. Verifica que el API esté ejecutándose.</p></main>;
+    return <main id="contenido" className="mx-auto max-w-6xl px-4 py-10"><p role="alert">No se pudo cargar el catálogo. Verifica que el API esté ejecutándose.</p></main>;
   }
 
   return (
-    <main className="mx-auto w-full max-w-6xl overflow-x-hidden px-4 py-8 sm:px-6">
+    <main id="contenido" className="mx-auto min-w-0 w-full max-w-6xl px-4 py-8 sm:px-6">
       <div className="mb-8 border-b-[var(--brand-border-width)] border-foreground pb-5">
         <p className="detail-mono text-sm uppercase text-foreground">Colección / <span className="count-badge">{data.items.length}</span></p>
         <h1 className="mt-2 text-5xl leading-none sm:text-7xl">Productos</h1>
@@ -38,6 +39,12 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
           {data.items.map((product) => (
             <Link key={product.id} href={`/productos/${product.slug}`} className="brutal-card group overflow-hidden bg-surface">
               <div className="relative aspect-square border-b-[var(--brand-border-width)] border-foreground bg-background">
+                <ProductImage
+                  src={product.imageUrl}
+                  name={product.name}
+                  category={product.category}
+                  sizes="(max-width: 640px) calc(100vw - 2rem), (max-width: 1024px) 50vw, 33vw"
+                />
                 <span key={currency} className="price-value liquid-glass detail-mono absolute bottom-3 right-3 px-3 py-2 text-sm text-foreground">{formatPrice(product.price, currency)}</span>
               </div>
               <div className="p-4"><p className="detail-mono text-xs uppercase text-foreground-soft">{product.brand}</p><h2 className="mt-2 text-2xl group-hover:text-accent">{product.name}</h2></div>

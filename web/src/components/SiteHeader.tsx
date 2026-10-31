@@ -13,13 +13,13 @@ export async function SiteHeader() {
     : brand.monedaPredeterminada;
 
   return (
-    <header className="liquid-glass sticky top-0 z-[200] border-x-0 border-t-0 px-4 py-3 sm:px-6">
-      <div className="relative z-[201] mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
-        <Link href="/" className="flex items-center text-xl font-black uppercase text-foreground" aria-label={brand.nombre}>
+    <header className="liquid-glass sticky top-0 z-[200] border-x-0 border-t-0 px-3 py-3 sm:px-6">
+      <div className="relative z-[201] mx-auto flex min-w-0 max-w-7xl flex-wrap items-center justify-between gap-2 sm:gap-3">
+        <Link href="/" className="flex shrink-0 items-center text-xl font-black uppercase text-foreground" aria-label={brand.nombre}>
           <BrandLogo logo={brand.logo} fallbackText={brand.nombre} />
         </Link>
-        <nav className="flex flex-wrap items-center justify-end gap-5" aria-label="Principal">
-          <Link href="/productos" className="text-sm font-bold uppercase text-foreground hover:text-accent">
+        <nav className="flex min-w-0 flex-wrap items-center justify-end gap-2 sm:gap-5" aria-label="Principal">
+          <Link href="/productos" className="whitespace-nowrap text-sm font-bold uppercase text-foreground hover:text-accent">
             Productos
           </Link>
           <CurrencySelector value={currency} />

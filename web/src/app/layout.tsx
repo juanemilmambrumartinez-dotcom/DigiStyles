@@ -65,6 +65,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       style={themeStyle}
     >
       <body className="flex min-h-full flex-col">
+        <a className="skip-link" href="#contenido">Saltar al contenido</a>
         <AmbientBackground />
         <Suspense fallback={<div className="liquid-glass h-16" />}>
           <SiteHeader />

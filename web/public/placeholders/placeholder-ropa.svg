@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-label="Ilustracion de camiseta">
+  <rect width="400" height="400" fill="#fff"/>
+  <path d="M130 80 L90 110 L40 160 L80 200 L110 180 L110 330 L290 330 L290 180 L320 200 L360 160 L310 110 L270 80 Q250 112 200 112 Q150 112 130 80 Z" fill="#000"/>
+  <path d="M150 84 Q200 130 250 84" fill="none" stroke="#fff" stroke-width="6"/>
+  <path d="M150 240 H250" stroke="#fff" stroke-width="6"/>
+</svg>

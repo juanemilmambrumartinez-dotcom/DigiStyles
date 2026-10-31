@@ -1,0 +1,12 @@
+# .NET
+bin/
+obj/
+.vs/
+*.user
+
+# Node / Next.js (por si acaso, ademas del de web)
+node_modules/
+.next/
+
+# Variables de entorno
+.env*

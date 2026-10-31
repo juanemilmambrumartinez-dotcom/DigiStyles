@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-label="Ilustracion de tenis">
+  <rect width="400" height="400" fill="#fff"/>
+  <path d="M60 255 L60 200 L70 188 L150 175 L185 125 L215 135 L250 175 L330 200 L355 235 L355 262 Z" fill="#000"/>
+  <path d="M190 150 L215 140 M200 170 L228 160 M215 188 L243 178" stroke="#fff" stroke-width="6" stroke-linecap="square"/>
+  <rect x="55" y="262" width="305" height="28" fill="#fff" stroke="#000" stroke-width="6"/>
+</svg>
