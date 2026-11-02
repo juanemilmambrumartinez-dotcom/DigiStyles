@@ -1,4 +1,5 @@
 using DigiStyles.Api.Features.Catalog;
+using DigiStyles.Api.Features.Cart;
 using DigiStyles.Api.Infrastructure.Data;
 using DigiStyles.Api.Infrastructure.Data.Seed;
 using Microsoft.EntityFrameworkCore;
@@ -38,5 +39,6 @@ app.UseHttpsRedirection();
 app.UseCors("FrontendLocal");
 
 app.MapCatalogEndpoints();
+app.MapCartEndpoints();
 
 app.Run();
