@@ -3,6 +3,7 @@ import { Archivo_Black, IBM_Plex_Mono } from "next/font/google";
 import { Suspense } from "react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { AmbientBackground } from "@/components/AmbientBackground";
+import { CartProvider } from "@/components/cart/CartProvider";
 import { brand } from "@/config/brand.config";
 import "./globals.css";
 
@@ -65,12 +66,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       style={themeStyle}
     >
       <body className="flex min-h-full flex-col">
-        <a className="skip-link" href="#contenido">Saltar al contenido</a>
-        <AmbientBackground />
-        <Suspense fallback={<div className="liquid-glass h-16" />}>
-          <SiteHeader />
-        </Suspense>
-        {children}
+        <CartProvider>
+          <a className="skip-link" href="#contenido">Saltar al contenido</a>
+          <AmbientBackground />
+          <Suspense fallback={<div className="liquid-glass h-16" />}>
+            <SiteHeader />
+          </Suspense>
+          {children}
+        </CartProvider>
       </body>
     </html>
   );
