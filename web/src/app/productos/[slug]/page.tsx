@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { brand } from "@/config/brand.config";
 import { ProductImage } from "@/components/catalog/ProductImage";
+import { AddToCartButton } from "@/components/cart/AddToCartButton";
 import { currencyCookieName, formatPrice, isCurrencyCode, type CurrencyCode } from "@/lib/currency";
 import { fetchCatalog, type ProductDetail } from "@/lib/catalog-api";
 
@@ -54,8 +55,9 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         <p key={currency} className="price-value detail-mono mt-6 border-y-[var(--brand-border-width)] border-foreground py-4 text-4xl font-bold">{formatPrice(product.basePrice, currency)}</p>
         <h2 className="mt-8 text-2xl">Variantes</h2>
         <div className="mt-3 grid gap-3">
-          {product.variants.map((variant) => <div key={variant.id} className="detail-mono flex min-w-0 flex-wrap justify-between gap-x-3 gap-y-1 border-[var(--brand-border-width)] border-foreground bg-surface p-3"><span className="min-w-0">{variant.size} / {variant.color}</span><span className="shrink-0">{variant.stock > 0 ? `${variant.stock} disponibles` : "Agotado"}</span></div>)}
+          {product.variants.map((variant) => <div key={variant.id} className="detail-mono flex min-w-0 flex-wrap justify-between gap-x-3 gap-y-1 border-[var(--brand-border-width)] border-foreground bg-surface p-3"><span className="min-w-0">{variant.size} / {variant.color}</span><span className="shrink-0">{variant.stock > 0 ? `${variant.stock} disponibles` : "Sin stock"}</span></div>)}
         </div>
+        <AddToCartButton variants={product.variants} />
       </section>
     </main>
   );
