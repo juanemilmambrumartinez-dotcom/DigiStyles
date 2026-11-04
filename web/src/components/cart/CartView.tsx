@@ -1,16 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
 import { ProductImage } from "@/components/catalog/ProductImage";
 import { useCart } from "@/components/cart/CartProvider";
+import { useCartValidation } from "@/components/cart/useCartValidation";
 import { formatPrice, type CurrencyCode } from "@/lib/currency";
 
 type CartViewProps = {
   currency: CurrencyCode;
 };
-
-const validationDelayMs = 280;
 
 export function CartView({ currency }: CartViewProps) {
   const {
@@ -19,41 +17,16 @@ export function CartView({ currency }: CartViewProps) {
     removeItem,
     hydrated,
     notice,
-    validate,
     validation,
     validationError,
     validating,
   } = useCart();
-  const [validatedSignature, setValidatedSignature] = useState<string | null>(null);
-  const validationRunRef = useRef(0);
-  const linesSignature = lines.map((line) => `${line.variantId}:${line.quantity}`).join("|");
+  const {
+    linesSignature,
+    validatedSignature,
+    runValidation,
+  } = useCartValidation({ enabled: hydrated });
   const hasLines = lines.length > 0;
-
-  const runValidation = useCallback((signature: string) => {
-    const runId = validationRunRef.current + 1;
-    validationRunRef.current = runId;
-    setValidatedSignature(null);
-
-    void validate().then(() => {
-      if (runId === validationRunRef.current) setValidatedSignature(signature);
-    });
-  }, [validate]);
-
-  useEffect(() => {
-    if (!hydrated) return;
-
-    const runId = validationRunRef.current + 1;
-    validationRunRef.current = runId;
-
-    if (!hasLines) return;
-
-    const timer = window.setTimeout(() => {
-      if (runId !== validationRunRef.current) return;
-      runValidation(linesSignature);
-    }, validationDelayMs);
-
-    return () => window.clearTimeout(timer);
-  }, [hydrated, hasLines, linesSignature, runValidation]);
 
   const isCurrentValidation = hasLines
     && validatedSignature === linesSignature

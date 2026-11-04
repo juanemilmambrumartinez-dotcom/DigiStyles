@@ -253,6 +253,34 @@ p {
   transform: translateY(0.5rem);
 }
 
+.cart-panel-dialog {
+  border: 0;
+  overflow: hidden;
+}
+
+.cart-panel-dialog::backdrop {
+  background: var(--brand-glass-shadow);
+}
+
+.cart-panel.t-panel {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(100%);
+}
+
+.cart-panel.t-panel.is-open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cart-panel.t-panel,
+  .cart-panel.t-panel.is-open {
+    transform: none;
+  }
+}
+
 .t-modal {
   transform: translateY(0.75rem);
 }
