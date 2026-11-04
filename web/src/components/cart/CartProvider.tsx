@@ -60,6 +60,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [validation, setValidation] = useState<CartValidationResponse | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [validating, setValidating] = useState(false);
+  const validationRequestRef = useRef(0);
 
   useEffect(() => {
     const hydrationTimer = window.setTimeout(() => {
@@ -148,29 +149,33 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const clear = useCallback(() => {
+    validationRequestRef.current += 1;
     linesRef.current = [];
     setLines([]);
     setNotice(null);
+    setValidating(false);
     setValidation(null);
     setValidationError(null);
   }, []);
 
   const validate = useCallback(async () => {
+    const requestId = validationRequestRef.current + 1;
+    validationRequestRef.current = requestId;
     setValidating(true);
     setValidationError(null);
 
     try {
       const result = await validateCartApi(normalizeCartLines(linesRef.current));
-      setValidation(result);
+      if (requestId === validationRequestRef.current) setValidation(result);
       return result;
     } catch (error) {
       const message = error instanceof Error
         ? error.message
         : "No se pudo validar el carrito.";
-      setValidationError(message);
+      if (requestId === validationRequestRef.current) setValidationError(message);
       return null;
     } finally {
-      setValidating(false);
+      if (requestId === validationRequestRef.current) setValidating(false);
     }
   }, []);
 
