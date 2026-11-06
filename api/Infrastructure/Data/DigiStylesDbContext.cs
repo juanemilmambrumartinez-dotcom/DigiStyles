@@ -1,4 +1,5 @@
 using DigiStyles.Api.Domain.Entities;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace DigiStyles.Api.Infrastructure.Data;
@@ -7,15 +8,34 @@ namespace DigiStyles.Api.Infrastructure.Data;
 /// Contexto principal de acceso a datos de DigiStyles, administrado por EF Core.
 /// </summary>
 public sealed class DigiStylesDbContext(DbContextOptions<DigiStylesDbContext> options)
-    : DbContext(options)
+    : IdentityDbContext<ApplicationUser>(options)
 {
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Product> Products => Set<Product>();
     public DbSet<ProductVariant> ProductVariants => Set<ProductVariant>();
     public DbSet<ProductImage> ProductImages => Set<ProductImage>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<ApplicationUser>(entity =>
+        {
+            entity.Property(user => user.Name).HasMaxLength(100).IsRequired();
+        });
+
+        modelBuilder.Entity<RefreshToken>(entity =>
+        {
+            entity.HasKey(token => token.Id);
+            entity.Property(token => token.TokenHash).IsRequired().HasMaxLength(32);
+            entity.HasIndex(token => token.TokenHash).IsUnique();
+            entity.HasOne(token => token.User)
+                .WithMany()
+                .HasForeignKey(token => token.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         modelBuilder.Entity<Category>(entity =>
         {
             entity.Property(category => category.Name).HasMaxLength(100).IsRequired();
