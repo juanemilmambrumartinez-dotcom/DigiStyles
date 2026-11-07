@@ -10,7 +10,12 @@ export async function GET(request: Request) {
 
     const result = await getAuthApi<AuthUser>("/api/auth/me", request, accessToken);
     if (!result.data) {
-      return noStoreJson({ message: result.status === 401 ? "No autenticado." : result.message ?? "No se pudo obtener la sesión." }, result.status);
+      const status = result.status >= 500 ? 503 : result.status;
+      return noStoreJson({ message: result.status === 401
+        ? "No autenticado."
+        : result.status >= 500
+          ? "El servicio de autenticacion no esta disponible."
+          : result.message ?? "No se pudo obtener la sesión." }, status);
     }
 
     return noStoreJson({ user: result.data });

@@ -6,6 +6,7 @@ import { AuthConfigurationError, noStoreJson } from "./auth-request";
 
 const REQUEST_TIMEOUT_MS = 10_000;
 const DEFAULT_REFRESH_CACHE_TTL_MS = 5_000;
+const ROTATED_REFRESH_HASH_TTL_MS = 30_000;
 
 export interface AuthUser {
   email: string;
@@ -38,8 +39,21 @@ interface RecentRefreshEntry {
   expiresAt: number;
 }
 
-const recentRefreshes = new Map<string, RecentRefreshEntry>();
-const refreshFlights = new Map<string, Promise<RefreshResult>>();
+interface AuthServerState {
+  recentRefreshes: Map<string, RecentRefreshEntry>;
+  refreshFlights: Map<string, Promise<RefreshResult>>;
+  rotatedRefreshHashes: Map<string, number>;
+}
+
+const globalAuthState = globalThis as typeof globalThis & {
+  __digiStylesAuthState?: AuthServerState;
+};
+const authState = globalAuthState.__digiStylesAuthState ??= {
+  recentRefreshes: new Map<string, RecentRefreshEntry>(),
+  refreshFlights: new Map<string, Promise<RefreshResult>>(),
+  rotatedRefreshHashes: new Map<string, number>(),
+};
+const { recentRefreshes, refreshFlights, rotatedRefreshHashes } = authState;
 
 function requiredEnvironment(name: "INTERNAL_API_KEY" | "NEXT_PUBLIC_API_URL"): string {
   const value = process.env[name];
@@ -61,6 +75,9 @@ function hashToken(token: string): string {
 function pruneRecentRefreshes(now = Date.now()): void {
   for (const [presentedHash, entry] of recentRefreshes) {
     if (entry.expiresAt <= now) recentRefreshes.delete(presentedHash);
+  }
+  for (const [tokenHash, expiresAt] of rotatedRefreshHashes) {
+    if (expiresAt <= now) rotatedRefreshHashes.delete(tokenHash);
   }
 }
 
@@ -138,6 +155,7 @@ async function rotateRefreshToken(request: Request, presentedToken: string, pres
       expiresAt: Date.now() + refreshCacheTtlMs(),
     };
     recentRefreshes.set(presentedTokenHash, entry);
+    rotatedRefreshHashes.set(presentedTokenHash, Date.now() + ROTATED_REFRESH_HASH_TTL_MS);
   }
   return { api, replayed: false };
 }
@@ -150,6 +168,13 @@ export async function refreshAuth(request: Request, presentedToken: string): Pro
     api: { status: 200, data: recent.response, message: null },
     replayed: true,
   };
+
+  if (rotatedRefreshHashes.has(presentedTokenHash)) {
+    return {
+      api: { status: 401, data: null, message: "El refresh token no es válido." },
+      replayed: false,
+    };
+  }
 
   const existingFlight = refreshFlights.get(presentedTokenHash);
   if (existingFlight) return existingFlight;
@@ -166,7 +191,8 @@ export async function refreshAuth(request: Request, presentedToken: string): Pro
 
 export function wasRecentlyRotated(presentedToken: string): boolean {
   pruneRecentRefreshes();
-  return recentRefreshes.has(hashToken(presentedToken));
+  const presentedTokenHash = hashToken(presentedToken);
+  return recentRefreshes.has(presentedTokenHash) || rotatedRefreshHashes.has(presentedTokenHash);
 }
 
 export function removeRefreshEntriesForNewToken(refreshToken: string): void {

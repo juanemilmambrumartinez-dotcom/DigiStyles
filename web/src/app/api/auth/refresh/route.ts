@@ -33,7 +33,11 @@ export async function POST(request: Request) {
       cookieStore.set(REFRESH_TOKEN_COOKIE, "", expiredRefreshTokenCookieOptions());
     }
 
-    return noStoreJson({ message: result.api.message ?? "El refresh token no es válido." }, result.api.status);
+    const status = result.api.status >= 500 ? 503 : result.api.status;
+    const message = result.api.status >= 500
+      ? "El servicio de autenticacion no esta disponible."
+      : result.api.message ?? "El refresh token no es válido.";
+    return noStoreJson({ message }, status);
   } catch (error) {
     return authServerErrorResponse(error);
   }

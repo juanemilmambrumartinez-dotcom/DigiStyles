@@ -13,9 +13,28 @@ export async function POST(request: Request) {
     const requestError = validateAuthPostRequest(request);
     if (requestError) return requestError;
 
-    const result = await postAuthApi<AuthResponse>("/api/auth/register", request, await request.json());
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return noStoreJson({ message: "Solicitud no válida." }, 400);
+    }
+
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return noStoreJson({ message: "Solicitud no válida." }, 400);
+    }
+
+    const { name, email, password } = body as Record<string, unknown>;
+    if (typeof name !== "string" || typeof email !== "string" || typeof password !== "string") {
+      return noStoreJson({ message: "Solicitud no válida." }, 400);
+    }
+
+    const result = await postAuthApi<AuthResponse>("/api/auth/register", request, { name, email, password });
     if (!result.data) {
-      return noStoreJson({ message: result.message ?? "No se pudo crear la cuenta." }, result.status);
+      const status = result.status >= 500 ? 503 : result.status;
+      return noStoreJson({ message: result.status >= 500
+        ? "El servicio de autenticacion no esta disponible."
+        : result.message ?? "No se pudo crear la cuenta." }, status);
     }
 
     const cookieStore = await cookies();

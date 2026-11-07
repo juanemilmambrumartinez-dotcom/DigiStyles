@@ -13,11 +13,30 @@ export async function POST(request: Request) {
     const requestError = validateAuthPostRequest(request);
     if (requestError) return requestError;
 
-    const result = await postAuthApi<AuthResponse>("/api/auth/login", request, await request.json());
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return noStoreJson({ message: "Solicitud no válida." }, 400);
+    }
+
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return noStoreJson({ message: "Solicitud no válida." }, 400);
+    }
+
+    const { email, password } = body as Record<string, unknown>;
+    if (typeof email !== "string" || typeof password !== "string") {
+      return noStoreJson({ message: "Solicitud no válida." }, 400);
+    }
+
+    const result = await postAuthApi<AuthResponse>("/api/auth/login", request, { email, password });
     if (!result.data) {
+      const status = result.status >= 500 ? 503 : result.status;
       return noStoreJson({ message: result.status === 401
         ? "Correo o contraseña incorrectos."
-        : result.message ?? "No se pudo iniciar sesión." }, result.status);
+        : result.status >= 500
+          ? "El servicio de autenticacion no esta disponible."
+          : result.message ?? "No se pudo iniciar sesión." }, status);
     }
 
     const cookieStore = await cookies();
