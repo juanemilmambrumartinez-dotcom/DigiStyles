@@ -36,6 +36,73 @@ public sealed class DigiStylesDbContext(DbContextOptions<DigiStylesDbContext> op
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        modelBuilder.Entity<Order>(entity =>
+        {
+            entity.ToTable("Orders", tableBuilder =>
+            {
+                tableBuilder.HasCheckConstraint(
+                    "CK_Orders_Status",
+                    "[Status] IN ('Pendiente','Confirmado','Enviado','Entregado','Cancelado')");
+                tableBuilder.HasCheckConstraint(
+                    "CK_Orders_PaymentMethod",
+                    "[PaymentMethod] IN ('Transferencia','ContraEntrega')");
+                tableBuilder.HasCheckConstraint("CK_Orders_Currency", "[Currency] = 'DOP'");
+                tableBuilder.HasCheckConstraint("CK_Orders_Subtotal_NonNegative", "[Subtotal] >= 0");
+                tableBuilder.HasCheckConstraint("CK_Orders_ShippingCost_NonNegative", "[ShippingCost] >= 0");
+                tableBuilder.HasCheckConstraint("CK_Orders_Total_NonNegative", "[Total] >= 0");
+                tableBuilder.HasCheckConstraint("CK_Orders_Total_Matches", "[Total] = [Subtotal] + [ShippingCost]");
+            });
+            entity.HasKey(order => order.Id);
+            entity.Property(order => order.OrderNumber).HasMaxLength(11).IsRequired();
+            entity.HasIndex(order => order.OrderNumber).IsUnique();
+            entity.Property(order => order.UserId).HasMaxLength(450).IsRequired();
+            entity.HasIndex(order => new { order.UserId, order.IdempotencyKey }).IsUnique();
+            entity.HasIndex(order => new { order.UserId, order.CreatedAtUtc });
+            entity.Property(order => order.Status).HasConversion<string>().HasMaxLength(20).IsRequired();
+            entity.Property(order => order.PaymentMethod).HasConversion<string>().HasMaxLength(20).IsRequired();
+            entity.Property(order => order.Currency).HasMaxLength(3).IsRequired();
+            entity.Property(order => order.Subtotal).HasPrecision(18, 2);
+            entity.Property(order => order.ShippingCost).HasPrecision(18, 2);
+            entity.Property(order => order.Total).HasPrecision(18, 2);
+            entity.Property(order => order.ContactName).HasMaxLength(100).IsRequired();
+            entity.Property(order => order.Phone).HasMaxLength(20).IsRequired();
+            entity.Property(order => order.Address).HasMaxLength(200).IsRequired();
+            entity.Property(order => order.City).HasMaxLength(100).IsRequired();
+            entity.Property(order => order.Note).HasMaxLength(300);
+            entity.Property(order => order.IdempotencyKey).HasMaxLength(100).IsRequired();
+            entity.Property(order => order.RequestHash).HasColumnType("varbinary(32)").IsRequired();
+            entity.Property(order => order.CreatedAtUtc).IsRequired();
+            entity.Property(order => order.UpdatedAtUtc).IsRequired();
+            entity.HasOne(order => order.User)
+                .WithMany()
+                .HasForeignKey(order => order.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<OrderItem>(entity =>
+        {
+            entity.ToTable("OrderItems", tableBuilder =>
+            {
+                tableBuilder.HasCheckConstraint("CK_OrderItems_Quantity_Range", "[Quantity] BETWEEN 1 AND 10");
+                tableBuilder.HasCheckConstraint("CK_OrderItems_UnitPrice_NonNegative", "[UnitPrice] >= 0");
+                tableBuilder.HasCheckConstraint("CK_OrderItems_LineTotal_Matches", "[LineTotal] = [UnitPrice] * [Quantity]");
+            });
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.ProductName).HasMaxLength(200).IsRequired();
+            entity.Property(item => item.Size).HasMaxLength(30).IsRequired();
+            entity.Property(item => item.Color).HasMaxLength(50).IsRequired();
+            entity.Property(item => item.UnitPrice).HasPrecision(18, 2);
+            entity.Property(item => item.LineTotal).HasPrecision(18, 2);
+            entity.HasOne(item => item.Order)
+                .WithMany(order => order.Items)
+                .HasForeignKey(item => item.OrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(item => item.ProductVariant)
+                .WithMany()
+                .HasForeignKey(item => item.ProductVariantId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
         modelBuilder.Entity<Category>(entity =>
         {
             entity.Property(category => category.Name).HasMaxLength(100).IsRequired();

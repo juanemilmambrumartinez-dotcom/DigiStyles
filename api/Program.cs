@@ -2,6 +2,7 @@ using DigiStyles.Api.Domain.Entities;
 using DigiStyles.Api.Features.Auth;
 using DigiStyles.Api.Features.Catalog;
 using DigiStyles.Api.Features.Cart;
+using DigiStyles.Api.Features.Orders;
 using DigiStyles.Api.Infrastructure.Data;
 using DigiStyles.Api.Infrastructure.Data.Seed;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -28,6 +29,22 @@ builder.Services.AddOptions<InternalApiOptions>()
     .Bind(builder.Configuration.GetSection(InternalApiOptions.SectionName))
     .Validate(options => !string.IsNullOrWhiteSpace(options.Key) && Encoding.UTF8.GetByteCount(options.Key) >= 32,
         "La configuración InternalApi:Key es obligatoria y debe tener al menos 32 bytes.")
+    .ValidateOnStart();
+builder.Services.AddOptions<ShippingOptions>()
+    .Bind(builder.Configuration.GetSection(ShippingOptions.SectionName))
+    .Validate(options => options.FixedCost >= 0, "Shipping:FixedCost debe ser mayor o igual que cero.")
+    .ValidateOnStart();
+builder.Services.AddOptions<BankTransferOptions>()
+    .Bind(builder.Configuration.GetSection(BankTransferOptions.SectionName))
+    .Validate(options => !string.IsNullOrWhiteSpace(options.BankName), "BankTransfer:BankName es obligatorio.")
+    .Validate(options => !string.IsNullOrWhiteSpace(options.AccountHolder), "BankTransfer:AccountHolder es obligatorio.")
+    .Validate(options => !string.IsNullOrWhiteSpace(options.AccountNumber), "BankTransfer:AccountNumber es obligatorio.")
+    .Validate(options => !string.IsNullOrWhiteSpace(options.AccountType), "BankTransfer:AccountType es obligatorio.")
+    .ValidateOnStart();
+builder.Services.AddOptions<OrderOptions>()
+    .Bind(builder.Configuration.GetSection(OrderOptions.SectionName))
+    .Validate(options => options.MaxPendingOrdersPerUser >= 1,
+        "Orders:MaxPendingOrdersPerUser debe ser mayor o igual que uno.")
     .ValidateOnStart();
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
     {
