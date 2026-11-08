@@ -83,6 +83,7 @@ builder.Services.AddAuthentication(options =>
     });
 builder.Services.AddAuthorization();
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<CartPricingService>();
 builder.Services.AddRateLimiter(options =>
 {
     var internalApiKey = builder.Configuration["InternalApi:Key"];
