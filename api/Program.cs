@@ -84,6 +84,7 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<CartPricingService>();
+builder.Services.AddScoped<OrderService>();
 builder.Services.AddRateLimiter(options =>
 {
     var internalApiKey = builder.Configuration["InternalApi:Key"];
@@ -100,6 +101,14 @@ builder.Services.AddRateLimiter(options =>
     AddAuthPolicy(options, "AuthRegister", 5, internalApiKey);
     AddAuthPolicy(options, "AuthRefresh", 30, internalApiKey);
     AddAuthPolicy(options, "AuthLogout", 30, internalApiKey);
+    options.AddPolicy("OrdersCreate", httpContext => RateLimitPartition.GetFixedWindowLimiter(
+        $"OrdersCreate:{httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "unknown"}",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0
+        }));
 });
 builder.Services.AddCors(options =>
 {
@@ -138,13 +147,14 @@ app.Use(async (httpContext, next) =>
         httpContext.Response.Headers.CacheControl = "no-store";
     await next(httpContext);
 });
-app.UseRateLimiter();
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapAuthEndpoints();
 app.MapCatalogEndpoints();
 app.MapCartEndpoints();
+app.MapOrderEndpoints();
 
 app.Run();
 
