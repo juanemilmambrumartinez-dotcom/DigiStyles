@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession, type SessionUser } from "@/components/session/SessionProvider";
 import { safeNext } from "@/lib/safe-next";
@@ -36,6 +37,10 @@ export function RegisterForm() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const nextDestination = safeNext(searchParams.get("next"));
+  const loginHref = nextDestination === "/cuenta"
+    ? "/ingresar"
+    : `/ingresar?next=${encodeURIComponent(nextDestination)}`;
 
   useEffect(() => {
     if (fieldErrors.name) nameRef.current?.focus();
@@ -110,7 +115,7 @@ export function RegisterForm() {
       <button type="submit" className="t-button border-[var(--brand-border-width)] border-foreground bg-accent px-4 py-3 font-bold uppercase text-background disabled:cursor-not-allowed disabled:opacity-50" disabled={submitting}>
         {submitting ? "Creando..." : "Crear cuenta"}
       </button>
-      <p className="detail-mono text-sm text-foreground-soft">¿Ya tienes cuenta? <a className="font-bold text-accent underline" href="/ingresar">Ingresa aquí</a>.</p>
+      <p className="detail-mono text-sm text-foreground-soft">¿Ya tienes cuenta? <Link className="font-bold text-accent underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent" href={loginHref}>Ingresa aquí</Link>.</p>
     </form>
   );
 }
