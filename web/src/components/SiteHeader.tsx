@@ -5,6 +5,7 @@ import { currencyCookieName, isCurrencyCode, type CurrencyCode } from "@/lib/cur
 import { CurrencySelector } from "@/components/catalog/CurrencySelector";
 import { BrandLogo } from "@/components/BrandLogo";
 import { CartShell } from "@/components/cart/CartShell";
+import { SessionHeaderControl } from "@/components/session/SessionHeaderControl";
 
 export async function SiteHeader() {
   const cookieStore = await cookies();
@@ -23,6 +24,7 @@ export async function SiteHeader() {
           <Link href="/productos" className="whitespace-nowrap text-sm font-bold uppercase text-foreground hover:text-accent">
             Productos
           </Link>
+          <SessionHeaderControl />
           <CurrencySelector value={currency} />
           <CartShell currency={currency} />
         </nav>

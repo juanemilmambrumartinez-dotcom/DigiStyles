@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { AmbientBackground } from "@/components/AmbientBackground";
 import { CartProvider } from "@/components/cart/CartProvider";
+import { SessionProvider } from "@/components/session/SessionProvider";
 import { brand } from "@/config/brand.config";
 import "./globals.css";
 
@@ -67,12 +68,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="flex min-h-full flex-col">
         <CartProvider>
-          <a className="skip-link" href="#contenido">Saltar al contenido</a>
-          <AmbientBackground />
-          <Suspense fallback={<div className="liquid-glass h-16" />}>
-            <SiteHeader />
-          </Suspense>
-          {children}
+          <SessionProvider>
+            <a className="skip-link" href="#contenido">Saltar al contenido</a>
+            <AmbientBackground />
+            <Suspense fallback={<div className="liquid-glass h-16" />}>
+              <SiteHeader />
+            </Suspense>
+            {children}
+          </SessionProvider>
         </CartProvider>
       </body>
     </html>
