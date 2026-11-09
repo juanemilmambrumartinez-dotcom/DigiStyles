@@ -6,6 +6,7 @@ using DigiStyles.Api.Infrastructure.Data;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace DigiStyles.Api.Features.Orders;
 
@@ -64,6 +65,17 @@ public sealed class OrderService(
                 if (result.TooManyPending)
                     return OrderCreateResult.TooManyPending();
 
+                if (result.KeyExists)
+                {
+                    db.ChangeTracker.Clear();
+                    existing = await FindByIdempotencyKeyAsync(userId, idempotencyKey, cancellationToken);
+                    if (existing is not null)
+                        return MatchesHash(existing, requestHash)
+                            ? OrderCreateResult.Idempotent(existing)
+                            : OrderCreateResult.ReusedKey();
+                    continue;
+                }
+
                 return OrderCreateResult.Created(result.Order!);
             }
             catch (DbUpdateException exception) when (IsUniqueViolation(exception))
@@ -95,6 +107,10 @@ public sealed class OrderService(
         var lockResult = await AcquireUserOrderLockAsync(userId, transaction.GetDbTransaction(), cancellationToken);
         if (lockResult < 0)
             return OrderAttemptResult.LockUnavailableResult;
+
+        if (await db.Set<Order>().AnyAsync(order =>
+                order.UserId == userId && order.IdempotencyKey == idempotencyKey, cancellationToken))
+            return OrderAttemptResult.KeyExistsResult;
 
         var pendingCount = await db.Set<Order>().CountAsync(order =>
             order.UserId == userId && order.Status == OrderStatus.Pendiente, cancellationToken);
@@ -156,13 +172,8 @@ public sealed class OrderService(
     {
         await using var command = db.Database.GetDbConnection().CreateCommand();
         command.Transaction = transaction;
-        command.CommandText = """
-            EXEC @LockResult = sys.sp_getapplock
-                @Resource = @ResourceName,
-                @LockOwner = @LockOwnerName,
-                @LockMode = @LockModeName,
-                @LockTimeout = @LockTimeoutValue;
-            """;
+        command.CommandType = System.Data.CommandType.StoredProcedure;
+        command.CommandText = "sys.sp_getapplock";
 
         var returnParameter = command.CreateParameter();
         returnParameter.ParameterName = "@LockResult";
@@ -170,10 +181,10 @@ public sealed class OrderService(
         returnParameter.Direction = System.Data.ParameterDirection.ReturnValue;
         command.Parameters.Add(returnParameter);
 
-        AddParameter(command, "@ResourceName", $"orders:{userId}");
-        AddParameter(command, "@LockOwnerName", "Transaction");
-        AddParameter(command, "@LockModeName", "Exclusive");
-        AddParameter(command, "@LockTimeoutValue", 5000);
+        AddParameter(command, "@Resource", $"orders:{userId}");
+        AddParameter(command, "@LockMode", "Exclusive");
+        AddParameter(command, "@LockOwner", "Transaction");
+        AddParameter(command, "@LockTimeout", 5000);
 
         await command.ExecuteNonQueryAsync(cancellationToken);
         return (int)(returnParameter.Value ?? -999);
@@ -274,7 +285,7 @@ public sealed record OrderCreateResult(
     IReadOnlyList<OrderStockLineResponse>? StockLines,
     decimal? NewTotal,
     bool LockUnavailable = false,
-    bool TooManyPending = false)
+    bool PendingLimitReached = false)
 {
     public static OrderCreateResult Created(Order order) => new(OrderCreateOutcome.Created, order, null, null, null);
     public static OrderCreateResult Idempotent(Order order) => new(OrderCreateOutcome.Idempotent, order, null, null, null);
@@ -299,8 +310,9 @@ public enum OrderCreateOutcome
 }
 
 public sealed record OrderAttemptResult(Order? Order, int? FailedVariantId,
-    bool LockUnavailable = false, bool TooManyPending = false)
+    bool LockUnavailable = false, bool TooManyPending = false, bool KeyExists = false)
 {
     public static OrderAttemptResult LockUnavailableResult => new(null, null, true);
     public static OrderAttemptResult TooManyPendingResult => new(null, null, false, true);
+    public static OrderAttemptResult KeyExistsResult => new(null, null, false, false, true);
 }
