@@ -29,6 +29,15 @@ public sealed record OrderResponse(
     OrderDeliveryResponse Delivery,
     OrderBankTransferResponse? BankTransfer);
 
+public sealed record OrderSummaryResponse(
+    Guid Id,
+    string OrderNumber,
+    string Status,
+    string PaymentMethod,
+    decimal Total,
+    DateTime Date,
+    int TotalItems);
+
 public sealed record OrderItemResponse(
     int? VariantId,
     string ProductName,

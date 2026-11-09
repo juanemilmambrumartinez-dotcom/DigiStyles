@@ -92,6 +92,79 @@ public sealed class OrderService(
         throw new InvalidOperationException("No se pudo generar un número de pedido único.");
     }
 
+    public Task<List<OrderSummaryResponse>> GetRecentAsync(
+        string userId, CancellationToken cancellationToken) =>
+        db.Set<Order>().AsNoTracking()
+            .Where(order => order.UserId == userId)
+            .OrderByDescending(order => order.CreatedAtUtc)
+            .Take(50)
+            .Select(order => new OrderSummaryResponse(
+                order.Id,
+                order.OrderNumber,
+                order.Status == OrderStatus.Pendiente ? "Pendiente" :
+                    order.Status == OrderStatus.Confirmado ? "Confirmado" :
+                    order.Status == OrderStatus.Enviado ? "Enviado" :
+                    order.Status == OrderStatus.Entregado ? "Entregado" : "Cancelado",
+                order.PaymentMethod == PaymentMethod.Transferencia ? "transferencia" : "contra_entrega",
+                order.Total,
+                DateTime.SpecifyKind(order.CreatedAtUtc, DateTimeKind.Utc),
+                order.Items.Sum(item => item.Quantity)))
+            .ToListAsync(cancellationToken);
+
+    public Task<Order?> GetByIdAsync(string userId, Guid id, CancellationToken cancellationToken) =>
+        db.Set<Order>().AsNoTracking()
+            .Include(order => order.Items)
+            .SingleOrDefaultAsync(order => order.Id == id && order.UserId == userId, cancellationToken);
+
+    public async Task<OrderCancelResult> CancelAsync(
+        string userId, Guid id, CancellationToken cancellationToken)
+    {
+        Order? order;
+        var cancelled = false;
+        await using (var transaction = await db.Database.BeginTransactionAsync(cancellationToken))
+        {
+            var now = DateTime.UtcNow;
+            var affected = await db.Set<Order>()
+                .Where(order => order.Id == id && order.UserId == userId && order.Status == OrderStatus.Pendiente)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(order => order.Status, OrderStatus.Cancelado)
+                    .SetProperty(order => order.UpdatedAtUtc, now), cancellationToken);
+
+            if (affected == 1)
+            {
+                var lines = await db.Set<OrderItem>().AsNoTracking()
+                    .Where(item => item.OrderId == id && item.ProductVariantId != null)
+                    .OrderBy(item => item.ProductVariantId)
+                    .Select(item => new { VariantId = item.ProductVariantId!.Value, item.Quantity })
+                    .ToListAsync(cancellationToken);
+                foreach (var line in lines)
+                {
+                    await db.ProductVariants
+                        .Where(variant => variant.Id == line.VariantId)
+                        .ExecuteUpdateAsync(setters => setters.SetProperty(
+                            variant => variant.Stock, variant => variant.Stock + line.Quantity), cancellationToken);
+                }
+
+                cancelled = true;
+            }
+            await transaction.CommitAsync(cancellationToken);
+        }
+
+        if (cancelled)
+        {
+            order = await GetByIdAsync(userId, id, cancellationToken);
+            return OrderCancelResult.Cancelled(order!);
+        }
+
+        order = await GetByIdAsync(userId, id, cancellationToken);
+
+        if (order is null)
+            return OrderCancelResult.NotFound;
+        if (order.Status == OrderStatus.Cancelado)
+            return OrderCancelResult.AlreadyCancelled(order);
+        return OrderCancelResult.NotCancelable(order);
+    }
+
     private async Task<OrderAttemptResult> TryCreateOrderAsync(
         string userId,
         string idempotencyKey,
@@ -241,6 +314,19 @@ public sealed class OrderService(
         return $"DS-{new string(suffix)}";
     }
 
+    public static string ToStatus(OrderStatus status) => status switch
+    {
+        OrderStatus.Pendiente => "Pendiente",
+        OrderStatus.Confirmado => "Confirmado",
+        OrderStatus.Enviado => "Enviado",
+        OrderStatus.Entregado => "Entregado",
+        OrderStatus.Cancelado => "Cancelado",
+        _ => "Pendiente"
+    };
+
+    public static string ToPaymentMethod(PaymentMethod paymentMethod) =>
+        paymentMethod == PaymentMethod.Transferencia ? "transferencia" : "contra_entrega";
+
     private static bool IsUniqueViolation(Exception exception)
     {
         for (var current = exception; current is not null; current = current.InnerException)
@@ -315,4 +401,20 @@ public sealed record OrderAttemptResult(Order? Order, int? FailedVariantId,
     public static OrderAttemptResult LockUnavailableResult => new(null, null, true);
     public static OrderAttemptResult TooManyPendingResult => new(null, null, false, true);
     public static OrderAttemptResult KeyExistsResult => new(null, null, false, false, true);
+}
+
+public sealed record OrderCancelResult(OrderCancelOutcome Outcome, Order? Order)
+{
+    public static OrderCancelResult NotFound => new(OrderCancelOutcome.NotFound, null);
+    public static OrderCancelResult Cancelled(Order order) => new(OrderCancelOutcome.Cancelled, order);
+    public static OrderCancelResult AlreadyCancelled(Order order) => new(OrderCancelOutcome.AlreadyCancelled, order);
+    public static OrderCancelResult NotCancelable(Order order) => new(OrderCancelOutcome.NotCancelable, order);
+}
+
+public enum OrderCancelOutcome
+{
+    Cancelled,
+    AlreadyCancelled,
+    NotCancelable,
+    NotFound
 }

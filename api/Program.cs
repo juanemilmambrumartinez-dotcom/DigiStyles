@@ -95,8 +95,14 @@ builder.Services.AddRateLimiter(options =>
             context.HttpContext.Request.Path.StartsWithSegments("/api/orders"))
             context.HttpContext.Response.Headers.CacheControl = "no-store";
         context.HttpContext.Response.ContentType = "application/json; charset=utf-8";
-        await context.HttpContext.Response.WriteAsJsonAsync(
-            new { message = "Demasiadas solicitudes. Inténtalo de nuevo más tarde." }, cancellationToken);
+        var isOrderRequest = context.HttpContext.Request.Path.StartsWithSegments("/api/orders");
+        if (isOrderRequest)
+            await context.HttpContext.Response.WriteAsJsonAsync(
+                new { code = "limite_excedido", message = "Demasiadas solicitudes. Inténtalo de nuevo más tarde." },
+                cancellationToken);
+        else
+            await context.HttpContext.Response.WriteAsJsonAsync(
+                new { message = "Demasiadas solicitudes. Inténtalo de nuevo más tarde." }, cancellationToken);
     };
     AddAuthPolicy(options, "AuthLogin", 10, internalApiKey);
     AddAuthPolicy(options, "AuthRegister", 5, internalApiKey);
@@ -104,6 +110,22 @@ builder.Services.AddRateLimiter(options =>
     AddAuthPolicy(options, "AuthLogout", 30, internalApiKey);
     options.AddPolicy("OrdersCreate", httpContext => RateLimitPartition.GetFixedWindowLimiter(
         $"OrdersCreate:{httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "unknown"}",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0
+        }));
+    options.AddPolicy("OrdersRead", httpContext => RateLimitPartition.GetFixedWindowLimiter(
+        $"OrdersRead:{httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "unknown"}",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 60,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0
+        }));
+    options.AddPolicy("OrdersCancel", httpContext => RateLimitPartition.GetFixedWindowLimiter(
+        $"OrdersCancel:{httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "unknown"}",
         _ => new FixedWindowRateLimiterOptions
         {
             PermitLimit = 10,

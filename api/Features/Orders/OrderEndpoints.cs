@@ -13,6 +13,58 @@ public static class OrderEndpoints
 
     public static void MapOrderEndpoints(this IEndpointRouteBuilder routes)
     {
+        routes.MapGet("/api/orders", async (HttpContext httpContext, OrderService orderService,
+            CancellationToken cancellationToken) =>
+        {
+            var userId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId is null)
+                return Results.Unauthorized();
+            return Results.Ok(await orderService.GetRecentAsync(userId, cancellationToken));
+        })
+        .RequireAuthorization()
+        .RequireRateLimiting("OrdersRead");
+
+        routes.MapGet("/api/orders/{id:guid}", async (Guid id, HttpContext httpContext,
+            OrderService orderService, IOptions<BankTransferOptions> bankTransferOptions,
+            CancellationToken cancellationToken) =>
+        {
+            var userId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId is null)
+                return Results.Unauthorized();
+
+            var order = await orderService.GetByIdAsync(userId, id, cancellationToken);
+            return order is null
+                ? Results.NotFound(new OrderErrorResponse("pedido_no_encontrado", "El pedido no existe."))
+                : Results.Ok(ToResponse(order, bankTransferOptions.Value, true));
+        })
+        .RequireAuthorization()
+        .RequireRateLimiting("OrdersRead");
+
+        routes.MapPost("/api/orders/{id:guid}/cancel", async (Guid id, HttpContext httpContext,
+            OrderService orderService, IOptions<BankTransferOptions> bankTransferOptions,
+            CancellationToken cancellationToken) =>
+        {
+            var userId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId is null)
+                return Results.Unauthorized();
+
+            var result = await orderService.CancelAsync(userId, id, cancellationToken);
+            return result.Outcome switch
+            {
+                OrderCancelOutcome.NotFound => Results.NotFound(new OrderErrorResponse(
+                    "pedido_no_encontrado", "El pedido no existe.")),
+                OrderCancelOutcome.AlreadyCancelled => Results.Ok(ToResponse(
+                    result.Order!, bankTransferOptions.Value, true)),
+                OrderCancelOutcome.NotCancelable => Results.Conflict(new OrderErrorResponse(
+                    "no_cancelable", "El pedido ya no se puede cancelar.")),
+                OrderCancelOutcome.Cancelled => Results.Ok(ToResponse(
+                    result.Order!, bankTransferOptions.Value, true)),
+                _ => throw new InvalidOperationException()
+            };
+        })
+        .RequireAuthorization()
+        .RequireRateLimiting("OrdersCancel");
+
         routes.MapPost("/api/orders", async (HttpContext httpContext, OrderService orderService,
             IOptions<BankTransferOptions> bankTransferOptions, CancellationToken cancellationToken) =>
         {
@@ -173,22 +225,15 @@ public static class OrderEndpoints
         _ => "El carrito no es válido."
     };
 
-    private static OrderResponse ToResponse(Order order, BankTransferOptions bankTransferOptions) =>
-        new(order.Id, order.OrderNumber, order.Status switch
-            {
-                OrderStatus.Pendiente => "Pendiente",
-                OrderStatus.Confirmado => "Confirmado",
-                OrderStatus.Enviado => "Enviado",
-                OrderStatus.Entregado => "Entregado",
-                OrderStatus.Cancelado => "Cancelado",
-                _ => "Pendiente"
-            }, order.PaymentMethod == PaymentMethod.Transferencia
-                ? "transferencia" : "contra_entrega", order.Currency, order.Subtotal, order.ShippingCost,
+    private static OrderResponse ToResponse(
+        Order order, BankTransferOptions bankTransferOptions, bool pendingTransferOnly = false) =>
+        new(order.Id, order.OrderNumber, OrderService.ToStatus(order.Status), OrderService.ToPaymentMethod(order.PaymentMethod), order.Currency, order.Subtotal, order.ShippingCost,
             order.Total, DateTime.SpecifyKind(order.CreatedAtUtc, DateTimeKind.Utc), order.Items.Select(item => new OrderItemResponse(
                 item.ProductVariantId, item.ProductName, item.Size, item.Color,
                 item.UnitPrice, item.Quantity, item.LineTotal)).ToList(),
             new OrderDeliveryResponse(order.ContactName, order.Phone, order.Address, order.City, order.Note),
-            order.PaymentMethod == PaymentMethod.Transferencia
+            order.PaymentMethod == PaymentMethod.Transferencia &&
+            (!pendingTransferOnly || order.Status == OrderStatus.Pendiente)
                 ? new OrderBankTransferResponse(bankTransferOptions.BankName, bankTransferOptions.AccountHolder,
                     bankTransferOptions.AccountNumber, bankTransferOptions.AccountType, order.OrderNumber)
                 : null);
