@@ -179,6 +179,7 @@ app.MapAuthEndpoints();
 app.MapCatalogEndpoints();
 app.MapCartEndpoints();
 app.MapOrderEndpoints();
+app.MapCheckoutInfoEndpoints();
 
 app.Run();
 

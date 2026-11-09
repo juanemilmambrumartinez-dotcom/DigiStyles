@@ -27,6 +27,11 @@ export interface AuthApiResult<T> {
   message: string | null;
 }
 
+export interface ApiProxyResult {
+  status: number;
+  body: unknown;
+}
+
 export interface RefreshResult {
   api: AuthApiResult<AuthResponse>;
   replayed: boolean;
@@ -212,4 +217,33 @@ export function authServerErrorResponse(error: unknown): Response {
   }
 
   return noStoreJson({ message: "No se pudo procesar la solicitud." }, 500);
+}
+
+async function readProxyResult(response: Response): Promise<ApiProxyResult> {
+  let body: unknown = null;
+  try {
+    body = await response.json();
+  } catch {
+    body = null;
+  }
+  return { status: response.status, body };
+}
+
+export async function proxyApiRequest(
+  path: string,
+  request: Request,
+  options: { method: "GET" | "POST"; accessToken?: string; body?: string; headers?: HeadersInit } = { method: "GET" },
+): Promise<ApiProxyResult> {
+  const headers = new Headers(options.headers);
+  if (options.accessToken) headers.set("Authorization", `Bearer ${options.accessToken}`);
+  const response = await fetchApi(path, request, {
+    method: options.method,
+    body: options.body,
+    headers,
+  });
+  return readProxyResult(response);
+}
+
+export function apiProxyErrorResponse(): Response {
+  return noStoreJson({ message: "El servicio no esta disponible." }, 503);
 }
