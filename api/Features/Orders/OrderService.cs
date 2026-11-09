@@ -1,6 +1,5 @@
-using System.Globalization;
 using System.Security.Cryptography;
-using System.Text;
+using System.Text.Json;
 using DigiStyles.Api.Domain.Entities;
 using DigiStyles.Api.Features.Cart;
 using DigiStyles.Api.Infrastructure.Data;
@@ -59,6 +58,12 @@ public sealed class OrderService(
                 if (result.FailedVariantId is int failedVariantId)
                     return OrderCreateResult.StockUnavailable(ToStockLines(pricing.Lines, failedVariantId));
 
+                if (result.LockUnavailable)
+                    return OrderCreateResult.Retry();
+
+                if (result.TooManyPending)
+                    return OrderCreateResult.TooManyPending();
+
                 return OrderCreateResult.Created(result.Order!);
             }
             catch (DbUpdateException exception) when (IsUniqueViolation(exception))
@@ -87,6 +92,15 @@ public sealed class OrderService(
         CancellationToken cancellationToken)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        var lockResult = await AcquireUserOrderLockAsync(userId, transaction.GetDbTransaction(), cancellationToken);
+        if (lockResult < 0)
+            return OrderAttemptResult.LockUnavailableResult;
+
+        var pendingCount = await db.Set<Order>().CountAsync(order =>
+            order.UserId == userId && order.Status == OrderStatus.Pendiente, cancellationToken);
+        if (pendingCount >= orderOptions.Value.MaxPendingOrdersPerUser)
+            return OrderAttemptResult.TooManyPendingResult;
+
         foreach (var line in lines.OrderBy(line => line.VariantId))
         {
             var affected = await db.ProductVariants
@@ -137,6 +151,42 @@ public sealed class OrderService(
         return new OrderAttemptResult(order, null);
     }
 
+    private async Task<int> AcquireUserOrderLockAsync(
+        string userId, System.Data.Common.DbTransaction transaction, CancellationToken cancellationToken)
+    {
+        await using var command = db.Database.GetDbConnection().CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = """
+            EXEC @LockResult = sys.sp_getapplock
+                @Resource = @ResourceName,
+                @LockOwner = @LockOwnerName,
+                @LockMode = @LockModeName,
+                @LockTimeout = @LockTimeoutValue;
+            """;
+
+        var returnParameter = command.CreateParameter();
+        returnParameter.ParameterName = "@LockResult";
+        returnParameter.DbType = System.Data.DbType.Int32;
+        returnParameter.Direction = System.Data.ParameterDirection.ReturnValue;
+        command.Parameters.Add(returnParameter);
+
+        AddParameter(command, "@ResourceName", $"orders:{userId}");
+        AddParameter(command, "@LockOwnerName", "Transaction");
+        AddParameter(command, "@LockModeName", "Exclusive");
+        AddParameter(command, "@LockTimeoutValue", 5000);
+
+        await command.ExecuteNonQueryAsync(cancellationToken);
+        return (int)(returnParameter.Value ?? -999);
+    }
+
+    private static void AddParameter(System.Data.Common.DbCommand command, string name, object value)
+    {
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = name;
+        parameter.Value = value;
+        command.Parameters.Add(parameter);
+    }
+
     private Task<Order?> FindByIdempotencyKeyAsync(
         string userId, string idempotencyKey, CancellationToken cancellationToken) =>
         db.Set<Order>().AsNoTracking().Include(order => order.Items)
@@ -151,12 +201,23 @@ public sealed class OrderService(
         var normalizedLines = request.Lines
             .GroupBy(line => line.VariantId)
             .OrderBy(group => group.Key)
-            .Select(group => $"{group.Key}:{group.Sum(line => line.Quantity)}");
-        var normalized = string.Join('|', normalizedLines) +
-            $";{request.PaymentMethod};{request.Contact.Name};{request.Contact.Phone};" +
-            $"{request.Contact.Address};{request.Contact.City};{request.Contact.Note ?? string.Empty};" +
-            request.ExpectedTotal.ToString("G29", CultureInfo.InvariantCulture);
-        return SHA256.HashData(Encoding.UTF8.GetBytes(normalized));
+            .Select(group => new { VariantId = group.Key, Quantity = group.Sum(line => line.Quantity) })
+            .ToArray();
+        var normalized = new
+        {
+            Lines = normalizedLines,
+            request.PaymentMethod,
+            Contact = new
+            {
+                request.Contact.Name,
+                request.Contact.Phone,
+                request.Contact.Address,
+                request.Contact.City,
+                request.Contact.Note
+            },
+            request.ExpectedTotal
+        };
+        return SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(normalized));
     }
 
     private static string GenerateOrderNumber()
@@ -211,12 +272,15 @@ public sealed record OrderCreateResult(
     Order? Order,
     CartValidationError? CartError,
     IReadOnlyList<OrderStockLineResponse>? StockLines,
-    decimal? NewTotal)
+    decimal? NewTotal,
+    bool LockUnavailable = false,
+    bool TooManyPending = false)
 {
     public static OrderCreateResult Created(Order order) => new(OrderCreateOutcome.Created, order, null, null, null);
     public static OrderCreateResult Idempotent(Order order) => new(OrderCreateOutcome.Idempotent, order, null, null, null);
     public static OrderCreateResult ReusedKey() => new(OrderCreateOutcome.ReusedKey, null, null, null, null);
     public static OrderCreateResult TooManyPending() => new(OrderCreateOutcome.TooManyPending, null, null, null, null);
+    public static OrderCreateResult Retry() => new(OrderCreateOutcome.Retry, null, null, null, null, true);
     public static OrderCreateResult InvalidCart(CartValidationError error) => new(OrderCreateOutcome.InvalidCart, null, error, null, null);
     public static OrderCreateResult StockUnavailable(IReadOnlyList<OrderStockLineResponse> lines) => new(OrderCreateOutcome.StockUnavailable, null, null, lines, null);
     public static OrderCreateResult PriceChanged(decimal total) => new(OrderCreateOutcome.PriceChanged, null, null, null, total);
@@ -230,7 +294,13 @@ public enum OrderCreateOutcome
     TooManyPending,
     InvalidCart,
     StockUnavailable,
-    PriceChanged
+    PriceChanged,
+    Retry
 }
 
-public sealed record OrderAttemptResult(Order? Order, int? FailedVariantId);
+public sealed record OrderAttemptResult(Order? Order, int? FailedVariantId,
+    bool LockUnavailable = false, bool TooManyPending = false)
+{
+    public static OrderAttemptResult LockUnavailableResult => new(null, null, true);
+    public static OrderAttemptResult TooManyPendingResult => new(null, null, false, true);
+}

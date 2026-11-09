@@ -91,7 +91,8 @@ builder.Services.AddRateLimiter(options =>
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.OnRejected = async (context, cancellationToken) =>
     {
-        if (context.HttpContext.Request.Path.StartsWithSegments("/api/auth"))
+        if (context.HttpContext.Request.Path.StartsWithSegments("/api/auth") ||
+            context.HttpContext.Request.Path.StartsWithSegments("/api/orders"))
             context.HttpContext.Response.Headers.CacheControl = "no-store";
         context.HttpContext.Response.ContentType = "application/json; charset=utf-8";
         await context.HttpContext.Response.WriteAsJsonAsync(
@@ -143,7 +144,8 @@ app.UseHttpsRedirection();
 app.UseCors("FrontendLocal");
 app.Use(async (httpContext, next) =>
 {
-    if (httpContext.Request.Path.StartsWithSegments("/api/auth"))
+    if (httpContext.Request.Path.StartsWithSegments("/api/auth") ||
+        httpContext.Request.Path.StartsWithSegments("/api/orders"))
         httpContext.Response.Headers.CacheControl = "no-store";
     await next(httpContext);
 });

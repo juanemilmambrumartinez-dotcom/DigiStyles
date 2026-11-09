@@ -30,7 +30,7 @@ public sealed record OrderResponse(
     OrderBankTransferResponse? BankTransfer);
 
 public sealed record OrderItemResponse(
-    int VariantId,
+    int? VariantId,
     string ProductName,
     string Size,
     string Color,

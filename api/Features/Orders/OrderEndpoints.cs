@@ -9,11 +9,18 @@ namespace DigiStyles.Api.Features.Orders;
 
 public static class OrderEndpoints
 {
+    private const int MaxRequestBodyBytes = 16 * 1024;
+
     public static void MapOrderEndpoints(this IEndpointRouteBuilder routes)
     {
         routes.MapPost("/api/orders", async (HttpContext httpContext, OrderService orderService,
             IOptions<BankTransferOptions> bankTransferOptions, CancellationToken cancellationToken) =>
         {
+            if (!await BodyFitsLimitAsync(httpContext, cancellationToken))
+                return Results.Json(new OrderErrorResponse(
+                    "cuerpo_demasiado_grande", "El cuerpo de la solicitud no puede superar los 16 KB."),
+                    statusCode: StatusCodes.Status413PayloadTooLarge);
+
             var idempotencyKey = httpContext.Request.Headers["Idempotency-Key"].ToString();
             if (!IsValidIdempotencyKey(idempotencyKey))
                 return Results.BadRequest(new OrderErrorResponse(
@@ -50,6 +57,8 @@ public static class OrderEndpoints
                     "clave_reutilizada", "La clave de idempotencia ya se utilizó con un contenido diferente.")),
                 OrderCreateOutcome.TooManyPending => Results.Conflict(new OrderErrorResponse(
                     "demasiados_pendientes", "Ya tienes demasiados pedidos pendientes.")),
+                OrderCreateOutcome.Retry => Results.Conflict(new OrderErrorResponse(
+                    "reintentar", "No se pudo reservar el pedido a tiempo; inténtalo de nuevo.")),
                 OrderCreateOutcome.InvalidCart => Results.BadRequest(new OrderErrorResponse(
                     "carrito_invalido", CartErrorMessage(result.CartError!.Value))),
                 OrderCreateOutcome.StockUnavailable => Results.Conflict(new OrderErrorResponse(
@@ -101,6 +110,29 @@ public static class OrderEndpoints
         return new CreateOrderRequest(lines, paymentMethod!, contact, expectedTotal);
     }
 
+    private static async Task<bool> BodyFitsLimitAsync(
+        HttpContext httpContext, CancellationToken cancellationToken)
+    {
+        if (httpContext.Request.ContentLength > MaxRequestBodyBytes)
+            return false;
+        if (httpContext.Request.ContentLength is not null)
+            return true;
+
+        httpContext.Request.EnableBuffering();
+        var buffer = new byte[4096];
+        var totalBytes = 0;
+        while (totalBytes <= MaxRequestBodyBytes)
+        {
+            var bytesRead = await httpContext.Request.Body.ReadAsync(buffer, cancellationToken);
+            if (bytesRead == 0)
+                break;
+            totalBytes += bytesRead;
+        }
+
+        httpContext.Request.Body.Position = 0;
+        return totalBytes <= MaxRequestBodyBytes;
+    }
+
     private static JsonElement Required(JsonElement parent, string name, JsonValueKind kind)
     {
         if (!parent.TryGetProperty(name, out var property) || property.ValueKind != kind)
@@ -119,12 +151,13 @@ public static class OrderEndpoints
     private static string? ReadOptionalTrimmed(JsonElement parent, string name, int maxLength)
     {
         if (!parent.TryGetProperty(name, out var property)) return null;
+        if (property.ValueKind == JsonValueKind.Null) return null;
         if (property.ValueKind != JsonValueKind.String)
             throw new InvalidOrderRequestException($"El campo {name} tiene un tipo inválido.");
         var value = property.GetString()!.Trim();
         if (value.Length > maxLength)
             throw new InvalidOrderRequestException($"El campo {name} no puede superar los {maxLength} caracteres.");
-        return value;
+        return value.Length == 0 ? null : value;
     }
 
     private static bool IsValidIdempotencyKey(string value) =>
@@ -151,8 +184,8 @@ public static class OrderEndpoints
                 _ => "Pendiente"
             }, order.PaymentMethod == PaymentMethod.Transferencia
                 ? "transferencia" : "contra_entrega", order.Currency, order.Subtotal, order.ShippingCost,
-            order.Total, order.CreatedAtUtc, order.Items.Select(item => new OrderItemResponse(
-                item.ProductVariantId!.Value, item.ProductName, item.Size, item.Color,
+            order.Total, DateTime.SpecifyKind(order.CreatedAtUtc, DateTimeKind.Utc), order.Items.Select(item => new OrderItemResponse(
+                item.ProductVariantId, item.ProductName, item.Size, item.Color,
                 item.UnitPrice, item.Quantity, item.LineTotal)).ToList(),
             new OrderDeliveryResponse(order.ContactName, order.Phone, order.Address, order.City, order.Note),
             order.PaymentMethod == PaymentMethod.Transferencia
