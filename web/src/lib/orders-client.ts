@@ -2,7 +2,7 @@ import { authFetch } from "@/lib/auth-client";
 import { formatPrice } from "@/lib/currency";
 
 export interface OrderLine {
-  variantId: string | null;
+  variantId: number | null;
   productName: string;
   size: string;
   color: string;
@@ -64,7 +64,7 @@ function isOrderDetail(value: unknown): value is OrderDetail {
     && typeof order.date === "string"
     && Array.isArray(order.lines)
     && Boolean(order.delivery)
-    && (order.bankTransfer === null || typeof order.bankTransfer === "object");
+    && (order.bankTransfer == null || typeof order.bankTransfer === "object");
 }
 
 export function formatOrderPrice(amount: number) {
@@ -81,7 +81,7 @@ export async function fetchOrder(id: string): Promise<FetchOrderResult> {
     if (!response.ok) return { kind: "error" };
 
     const body: unknown = await response.json();
-    return isOrderDetail(body) ? { kind: "ok", order: body } : { kind: "error" };
+    return isOrderDetail(body) ? { kind: "ok", order: { ...body, bankTransfer: body.bankTransfer ?? null } } : { kind: "error" };
   } catch {
     return { kind: "error" };
   }
