@@ -64,4 +64,8 @@ export const brand = {
     estado: "La tienda está en preparación",
     descripcion: "Base del proyecto configurada y lista para construir el catálogo.",
   },
+  demo: {
+    enabled: true,
+    notice: "Tienda de demostración: no se procesan pagos ni se envían productos. Usa datos ficticios.",
+  },
 } as const;

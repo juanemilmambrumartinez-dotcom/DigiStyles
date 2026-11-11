@@ -2,6 +2,7 @@ using DigiStyles.Api.Domain.Entities;
 using DigiStyles.Api.Features.Auth;
 using DigiStyles.Api.Features.Catalog;
 using DigiStyles.Api.Features.Cart;
+using DigiStyles.Api.Features.Orders;
 using DigiStyles.Api.Infrastructure.Data;
 using DigiStyles.Api.Infrastructure.Data.Seed;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -28,6 +29,22 @@ builder.Services.AddOptions<InternalApiOptions>()
     .Bind(builder.Configuration.GetSection(InternalApiOptions.SectionName))
     .Validate(options => !string.IsNullOrWhiteSpace(options.Key) && Encoding.UTF8.GetByteCount(options.Key) >= 32,
         "La configuración InternalApi:Key es obligatoria y debe tener al menos 32 bytes.")
+    .ValidateOnStart();
+builder.Services.AddOptions<ShippingOptions>()
+    .Bind(builder.Configuration.GetSection(ShippingOptions.SectionName))
+    .Validate(options => options.FixedCost >= 0, "Shipping:FixedCost debe ser mayor o igual que cero.")
+    .ValidateOnStart();
+builder.Services.AddOptions<BankTransferOptions>()
+    .Bind(builder.Configuration.GetSection(BankTransferOptions.SectionName))
+    .Validate(options => !string.IsNullOrWhiteSpace(options.BankName), "BankTransfer:BankName es obligatorio.")
+    .Validate(options => !string.IsNullOrWhiteSpace(options.AccountHolder), "BankTransfer:AccountHolder es obligatorio.")
+    .Validate(options => !string.IsNullOrWhiteSpace(options.AccountNumber), "BankTransfer:AccountNumber es obligatorio.")
+    .Validate(options => !string.IsNullOrWhiteSpace(options.AccountType), "BankTransfer:AccountType es obligatorio.")
+    .ValidateOnStart();
+builder.Services.AddOptions<OrderOptions>()
+    .Bind(builder.Configuration.GetSection(OrderOptions.SectionName))
+    .Validate(options => options.MaxPendingOrdersPerUser >= 1,
+        "Orders:MaxPendingOrdersPerUser debe ser mayor o igual que uno.")
     .ValidateOnStart();
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
     {
@@ -66,22 +83,55 @@ builder.Services.AddAuthentication(options =>
     });
 builder.Services.AddAuthorization();
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<CartPricingService>();
+builder.Services.AddScoped<OrderService>();
 builder.Services.AddRateLimiter(options =>
 {
     var internalApiKey = builder.Configuration["InternalApi:Key"];
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.OnRejected = async (context, cancellationToken) =>
     {
-        if (context.HttpContext.Request.Path.StartsWithSegments("/api/auth"))
+        if (context.HttpContext.Request.Path.StartsWithSegments("/api/auth") ||
+            context.HttpContext.Request.Path.StartsWithSegments("/api/orders"))
             context.HttpContext.Response.Headers.CacheControl = "no-store";
         context.HttpContext.Response.ContentType = "application/json; charset=utf-8";
-        await context.HttpContext.Response.WriteAsJsonAsync(
-            new { message = "Demasiadas solicitudes. Inténtalo de nuevo más tarde." }, cancellationToken);
+        var isOrderRequest = context.HttpContext.Request.Path.StartsWithSegments("/api/orders");
+        if (isOrderRequest)
+            await context.HttpContext.Response.WriteAsJsonAsync(
+                new { code = "limite_excedido", message = "Demasiadas solicitudes. Inténtalo de nuevo más tarde." },
+                cancellationToken);
+        else
+            await context.HttpContext.Response.WriteAsJsonAsync(
+                new { message = "Demasiadas solicitudes. Inténtalo de nuevo más tarde." }, cancellationToken);
     };
     AddAuthPolicy(options, "AuthLogin", 10, internalApiKey);
     AddAuthPolicy(options, "AuthRegister", 5, internalApiKey);
     AddAuthPolicy(options, "AuthRefresh", 30, internalApiKey);
     AddAuthPolicy(options, "AuthLogout", 30, internalApiKey);
+    options.AddPolicy("OrdersCreate", httpContext => RateLimitPartition.GetFixedWindowLimiter(
+        $"OrdersCreate:{httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "unknown"}",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0
+        }));
+    options.AddPolicy("OrdersRead", httpContext => RateLimitPartition.GetFixedWindowLimiter(
+        $"OrdersRead:{httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "unknown"}",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 60,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0
+        }));
+    options.AddPolicy("OrdersCancel", httpContext => RateLimitPartition.GetFixedWindowLimiter(
+        $"OrdersCancel:{httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "unknown"}",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0
+        }));
 });
 builder.Services.AddCors(options =>
 {
@@ -116,17 +166,20 @@ app.UseHttpsRedirection();
 app.UseCors("FrontendLocal");
 app.Use(async (httpContext, next) =>
 {
-    if (httpContext.Request.Path.StartsWithSegments("/api/auth"))
+    if (httpContext.Request.Path.StartsWithSegments("/api/auth") ||
+        httpContext.Request.Path.StartsWithSegments("/api/orders"))
         httpContext.Response.Headers.CacheControl = "no-store";
     await next(httpContext);
 });
-app.UseRateLimiter();
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapAuthEndpoints();
 app.MapCatalogEndpoints();
 app.MapCartEndpoints();
+app.MapOrderEndpoints();
+app.MapCheckoutInfoEndpoints();
 
 app.Run();
 
