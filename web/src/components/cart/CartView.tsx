@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ProductImage } from "@/components/catalog/ProductImage";
 import { useCart } from "@/components/cart/CartProvider";
 import { useCartValidation } from "@/components/cart/useCartValidation";
@@ -11,6 +12,7 @@ type CartViewProps = {
 };
 
 export function CartView({ currency }: CartViewProps) {
+  const router = useRouter();
   const {
     lines,
     setQuantity,
@@ -34,6 +36,9 @@ export function CartView({ currency }: CartViewProps) {
   const isUpdating = hasLines && !isCurrentValidation;
   const responseLines = validation?.lines ?? [];
   const totalIsDefinitive = isCurrentValidation && Boolean(validation) && !validationError;
+  const canContinue = totalIsDefinitive
+    && responseLines.length === lines.length
+    && responseLines.every((line) => line.status === "ok");
 
   if (!hydrated) {
     return (
@@ -162,7 +167,7 @@ export function CartView({ currency }: CartViewProps) {
               <span className="detail-mono text-sm uppercase">Total</span>
               <span className="detail-mono text-2xl font-bold">{totalIsDefinitive && validation ? formatPrice(validation.total, currency) : "Actualizando..."}</span>
             </div>
-            <button type="button" disabled className="t-button mt-6 w-full cursor-not-allowed bg-accent px-4 py-3 font-bold uppercase text-background opacity-60">Disponible en el pago</button>
+            <button type="button" disabled={!canContinue} className="t-button mt-6 w-full bg-accent px-4 py-3 font-bold uppercase text-background disabled:cursor-not-allowed disabled:opacity-60" onClick={() => router.push("/checkout")}>Continuar</button>
           </div>
 
           {validationError && !isUpdating && (

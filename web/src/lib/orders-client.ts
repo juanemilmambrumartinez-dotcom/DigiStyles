@@ -1,5 +1,6 @@
 import { authFetch } from "@/lib/auth-client";
 import { formatPrice } from "@/lib/currency";
+import type { StoredCartLine } from "@/lib/cart-storage";
 
 export interface OrderLine {
   variantId: number | null;
@@ -48,6 +49,27 @@ export type FetchOrderResult =
   | { kind: "unauthenticated" }
   | { kind: "error" };
 
+export type PaymentMethod = "transferencia" | "contra_entrega";
+
+export interface OrderContactRequest {
+  name: string;
+  phone: string;
+  address: string;
+  city: string;
+  note: string | null;
+}
+
+export interface CreateOrderRequest {
+  lines: StoredCartLine[];
+  paymentMethod: PaymentMethod;
+  contact: OrderContactRequest;
+  expectedTotal: number;
+}
+
+export type CreateOrderResult =
+  | { kind: "ok"; id: string; status: 200 | 201 }
+  | { kind: "error"; status: number; code: string | null; message: string; details: unknown };
+
 const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function isOrderDetail(value: unknown): value is OrderDetail {
@@ -69,6 +91,67 @@ function isOrderDetail(value: unknown): value is OrderDetail {
 
 export function formatOrderPrice(amount: number) {
   return formatPrice(amount, "DOP");
+}
+
+function readErrorBody(body: unknown) {
+  if (!body || typeof body !== "object") {
+    return { code: null, message: "No se pudo crear el pedido.", details: undefined };
+  }
+
+  const errorBody = body as { code?: unknown; message?: unknown; details?: unknown };
+  return {
+    code: typeof errorBody.code === "string" ? errorBody.code : null,
+    message: typeof errorBody.message === "string" ? errorBody.message : "No se pudo crear el pedido.",
+    details: errorBody.details,
+  };
+}
+
+export async function createOrder(
+  payload: CreateOrderRequest,
+  idempotencyKey: string,
+): Promise<CreateOrderResult> {
+  try {
+    const response = await authFetch("/api/orders", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": idempotencyKey,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch {
+      body = null;
+    }
+
+    if (!response.ok) {
+      const error = readErrorBody(body);
+      return { kind: "error", status: response.status, ...error };
+    }
+
+    if (!body || typeof body !== "object" || typeof (body as { id?: unknown }).id !== "string") {
+      return {
+        kind: "error",
+        status: response.status,
+        code: "respuesta_invalida",
+        message: "No se pudo confirmar el pedido.",
+        details: undefined,
+      };
+    }
+
+    return { kind: "ok", id: (body as { id: string }).id, status: response.status as 200 | 201 };
+  } catch {
+    return {
+      kind: "error",
+      status: 503,
+      code: "servicio_no_disponible",
+      message: "No pudimos conectar con el servicio. El pedido podría haberse creado.",
+      details: undefined,
+    };
+  }
 }
 
 export async function fetchOrder(id: string): Promise<FetchOrderResult> {
