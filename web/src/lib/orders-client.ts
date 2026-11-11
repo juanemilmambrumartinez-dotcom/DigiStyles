@@ -43,11 +43,34 @@ export interface OrderDetail {
   bankTransfer: BankTransferDetails | null;
 }
 
+export interface OrderSummary {
+  id: string;
+  orderNumber: string;
+  status: OrderDetail["status"];
+  paymentMethod: "transferencia" | "contra_entrega";
+  total: number;
+  date: string;
+  totalItems: number;
+}
+
 export type FetchOrderResult =
   | { kind: "ok"; order: OrderDetail }
   | { kind: "notFound" }
   | { kind: "unauthenticated" }
   | { kind: "error" };
+
+export type FetchOrdersResult =
+  | { kind: "ok"; orders: OrderSummary[] }
+  | { kind: "unauthenticated" }
+  | { kind: "error"; status: number };
+
+export type CancelOrderResult =
+  | { kind: "ok" }
+  | { kind: "notFound" }
+  | { kind: "notCancelable" }
+  | { kind: "rateLimited" }
+  | { kind: "unauthenticated" }
+  | { kind: "error"; status: number };
 
 export type PaymentMethod = "transferencia" | "contra_entrega";
 
@@ -154,6 +177,49 @@ export async function createOrder(
   }
 }
 
+export async function fetchOrders(): Promise<FetchOrdersResult> {
+  try {
+    const response = await authFetch("/api/orders", { method: "GET" });
+    if (response.status === 401) return { kind: "unauthenticated" };
+    if (!response.ok) return { kind: "error", status: response.status };
+
+    const body: unknown = await response.json();
+    if (!Array.isArray(body) || !body.every(isOrderSummary)) return { kind: "error", status: 503 };
+    return { kind: "ok", orders: body };
+  } catch {
+    return { kind: "error", status: 503 };
+  }
+}
+
+export async function cancelOrder(id: string): Promise<CancelOrderResult> {
+  try {
+    const response = await authFetch(`/api/orders/${encodeURIComponent(id)}/cancel`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+
+    if (response.status === 401) return { kind: "unauthenticated" };
+    if (response.status === 404) return { kind: "notFound" };
+    if (response.status === 429) return { kind: "rateLimited" };
+    if (response.status === 409) {
+      let body: unknown;
+      try {
+        body = await response.json();
+      } catch {
+        body = null;
+      }
+      return body && typeof body === "object" && (body as { code?: unknown }).code === "no_cancelable"
+        ? { kind: "notCancelable" }
+        : { kind: "error", status: response.status };
+    }
+    if (!response.ok) return { kind: "error", status: response.status };
+    return { kind: "ok" };
+  } catch {
+    return { kind: "error", status: 503 };
+  }
+}
+
 export async function fetchOrder(id: string): Promise<FetchOrderResult> {
   if (!guidPattern.test(id)) return { kind: "notFound" };
 
@@ -168,4 +234,16 @@ export async function fetchOrder(id: string): Promise<FetchOrderResult> {
   } catch {
     return { kind: "error" };
   }
+}
+
+function isOrderSummary(value: unknown): value is OrderSummary {
+  if (!value || typeof value !== "object") return false;
+  const order = value as Partial<OrderSummary>;
+  return typeof order.id === "string"
+    && typeof order.orderNumber === "string"
+    && typeof order.status === "string"
+    && typeof order.paymentMethod === "string"
+    && typeof order.total === "number"
+    && typeof order.date === "string"
+    && typeof order.totalItems === "number";
 }

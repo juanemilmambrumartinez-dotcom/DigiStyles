@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/components/session/SessionProvider";
 
@@ -73,6 +74,12 @@ export function AccountView() {
         <span className="detail-mono text-xs font-bold uppercase text-foreground-soft">Correo</span>
         <span className="break-all">{usuario.email}</span>
       </div>
+      <Link
+        className="t-button border-[var(--brand-border-width)] border-foreground bg-surface px-4 py-3 font-bold uppercase focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        href="/pedidos"
+      >
+        Mis pedidos
+      </Link>
       <button
         type="button"
         className="t-button border-[var(--brand-border-width)] border-foreground bg-accent px-4 py-3 font-bold uppercase text-background disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
