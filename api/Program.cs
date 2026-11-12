@@ -81,7 +81,10 @@ builder.Services.AddAuthentication(options =>
             ClockSkew = TimeSpan.FromSeconds(30)
         };
     });
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminOnly", policy => policy.RequireRole("admin"));
+});
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<CartPricingService>();
 builder.Services.AddScoped<OrderService>();
@@ -92,10 +95,12 @@ builder.Services.AddRateLimiter(options =>
     options.OnRejected = async (context, cancellationToken) =>
     {
         if (context.HttpContext.Request.Path.StartsWithSegments("/api/auth") ||
-            context.HttpContext.Request.Path.StartsWithSegments("/api/orders"))
+            context.HttpContext.Request.Path.StartsWithSegments("/api/orders") ||
+            context.HttpContext.Request.Path.StartsWithSegments("/api/admin/orders"))
             context.HttpContext.Response.Headers.CacheControl = "no-store";
         context.HttpContext.Response.ContentType = "application/json; charset=utf-8";
-        var isOrderRequest = context.HttpContext.Request.Path.StartsWithSegments("/api/orders");
+        var isOrderRequest = context.HttpContext.Request.Path.StartsWithSegments("/api/orders") ||
+            context.HttpContext.Request.Path.StartsWithSegments("/api/admin/orders");
         if (isOrderRequest)
             await context.HttpContext.Response.WriteAsJsonAsync(
                 new { code = "limite_excedido", message = "Demasiadas solicitudes. Inténtalo de nuevo más tarde." },
@@ -126,6 +131,22 @@ builder.Services.AddRateLimiter(options =>
         }));
     options.AddPolicy("OrdersCancel", httpContext => RateLimitPartition.GetFixedWindowLimiter(
         $"OrdersCancel:{httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "unknown"}",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0
+        }));
+    options.AddPolicy("AdminOrdersRead", httpContext => RateLimitPartition.GetFixedWindowLimiter(
+        $"AdminOrdersRead:{httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "unknown"}",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 60,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0
+        }));
+    options.AddPolicy("AdminOrdersWrite", httpContext => RateLimitPartition.GetFixedWindowLimiter(
+        $"AdminOrdersWrite:{httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "unknown"}",
         _ => new FixedWindowRateLimiterOptions
         {
             PermitLimit = 10,
@@ -167,8 +188,9 @@ app.UseCors("FrontendLocal");
 app.Use(async (httpContext, next) =>
 {
     if (httpContext.Request.Path.StartsWithSegments("/api/auth") ||
-        httpContext.Request.Path.StartsWithSegments("/api/orders"))
-        httpContext.Response.Headers.CacheControl = "no-store";
+    httpContext.Request.Path.StartsWithSegments("/api/orders") ||
+    httpContext.Request.Path.StartsWithSegments("/api/admin"))
+    httpContext.Response.Headers.CacheControl = "no-store";
     await next(httpContext);
 });
 app.UseAuthentication();
@@ -179,6 +201,7 @@ app.MapAuthEndpoints();
 app.MapCatalogEndpoints();
 app.MapCartEndpoints();
 app.MapOrderEndpoints();
+app.MapAdminOrderEndpoints();
 app.MapCheckoutInfoEndpoints();
 
 app.Run();
