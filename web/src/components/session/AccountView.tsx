@@ -80,6 +80,14 @@ export function AccountView() {
       >
         Mis pedidos
       </Link>
+      {usuario.roles.includes("admin") ? (
+        <Link
+          className="t-button border-[var(--brand-border-width)] border-foreground bg-surface px-4 py-3 font-bold uppercase focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          href="/admin/pedidos"
+        >
+          Administración
+        </Link>
+      ) : null}
       <button
         type="button"
         className="t-button border-[var(--brand-border-width)] border-foreground bg-accent px-4 py-3 font-bold uppercase text-background disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
