@@ -116,6 +116,79 @@ public sealed class OrderService(
             .Include(order => order.Items)
             .SingleOrDefaultAsync(order => order.Id == id && order.UserId == userId, cancellationToken);
 
+    public Task<List<AdminOrderSummaryResponse>> GetAdminSummariesAsync(
+        OrderStatus? status, CancellationToken cancellationToken)
+    {
+        var query = db.Set<Order>().AsNoTracking();
+        if (status is not null)
+            query = query.Where(order => order.Status == status.Value);
+
+        return query
+            .OrderByDescending(order => order.CreatedAtUtc)
+            .Take(50)
+            .Select(order => new AdminOrderSummaryResponse(
+                order.Id,
+                order.OrderNumber,
+                ToStatus(order.Status),
+                ToPaymentMethod(order.PaymentMethod),
+                order.Total,
+                DateTime.SpecifyKind(order.CreatedAtUtc, DateTimeKind.Utc),
+                order.Items.Sum(item => item.Quantity),
+                order.ContactName))
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<AdminOrderDetailResponse?> GetAdminByIdAsync(
+        Guid id, CancellationToken cancellationToken)
+    {
+        var order = await db.Set<Order>().AsNoTracking()
+            .Include(current => current.Items)
+            .Include(current => current.User)
+            .SingleOrDefaultAsync(current => current.Id == id, cancellationToken);
+        return order is null ? null : ToAdminDetail(order);
+    }
+
+    public async Task<AdminOrderStatusResult> ChangeAdminStatusAsync(
+        Guid id, OrderStatus targetStatus, CancellationToken cancellationToken)
+    {
+        var existing = await db.Set<Order>().AsNoTracking()
+            .SingleOrDefaultAsync(order => order.Id == id, cancellationToken);
+        if (existing is null)
+            return AdminOrderStatusResult.NotFound;
+        if (existing.Status == targetStatus)
+        {
+            var current = await GetAdminByIdAsync(id, cancellationToken);
+            return AdminOrderStatusResult.AlreadyInStatus(current!);
+        }
+        if (!IsAllowedAdminTransition(existing.Status, targetStatus))
+            return AdminOrderStatusResult.InvalidTransition;
+
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        var affected = await db.Set<Order>()
+            .Where(order => order.Id == id && order.Status == existing.Status)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(order => order.Status, targetStatus)
+                .SetProperty(order => order.UpdatedAtUtc, DateTime.UtcNow), cancellationToken);
+
+        if (affected == 1)
+        {
+            if (targetStatus == OrderStatus.Cancelado)
+                await RestoreStockAsync(id, cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+            var updated = await GetAdminByIdAsync(id, cancellationToken);
+            return AdminOrderStatusResult.Updated(updated!);
+        }
+
+        await transaction.RollbackAsync(cancellationToken);
+        var currentAfterConflict = await GetAdminByIdAsync(id, cancellationToken);
+        if (currentAfterConflict is null)
+            return AdminOrderStatusResult.NotFound;
+        if (currentAfterConflict.Status == ToStatus(targetStatus))
+            return AdminOrderStatusResult.AlreadyInStatus(currentAfterConflict);
+        return AdminOrderStatusResult.InvalidTransition;
+    }
+
     public async Task<OrderCancelResult> CancelAsync(
         string userId, Guid id, CancellationToken cancellationToken)
     {
@@ -132,19 +205,7 @@ public sealed class OrderService(
 
             if (affected == 1)
             {
-                var lines = await db.Set<OrderItem>().AsNoTracking()
-                    .Where(item => item.OrderId == id && item.ProductVariantId != null)
-                    .OrderBy(item => item.ProductVariantId)
-                    .Select(item => new { VariantId = item.ProductVariantId!.Value, item.Quantity })
-                    .ToListAsync(cancellationToken);
-                foreach (var line in lines)
-                {
-                    await db.ProductVariants
-                        .Where(variant => variant.Id == line.VariantId)
-                        .ExecuteUpdateAsync(setters => setters.SetProperty(
-                            variant => variant.Stock, variant => variant.Stock + line.Quantity), cancellationToken);
-                }
-
+                await RestoreStockAsync(id, cancellationToken);
                 cancelled = true;
             }
             await transaction.CommitAsync(cancellationToken);
@@ -164,6 +225,41 @@ public sealed class OrderService(
             return OrderCancelResult.AlreadyCancelled(order);
         return OrderCancelResult.NotCancelable(order);
     }
+
+    private async Task RestoreStockAsync(Guid orderId, CancellationToken cancellationToken)
+    {
+        var lines = await db.Set<OrderItem>().AsNoTracking()
+            .Where(item => item.OrderId == orderId && item.ProductVariantId != null)
+            .OrderBy(item => item.ProductVariantId)
+            .Select(item => new { VariantId = item.ProductVariantId!.Value, item.Quantity })
+            .ToListAsync(cancellationToken);
+        foreach (var line in lines)
+        {
+            await db.ProductVariants
+                .Where(variant => variant.Id == line.VariantId)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(
+                    variant => variant.Stock, variant => variant.Stock + line.Quantity), cancellationToken);
+        }
+    }
+
+    private static bool IsAllowedAdminTransition(OrderStatus current, OrderStatus target) =>
+        (current, target) is
+            (OrderStatus.Pendiente, OrderStatus.Confirmado) or
+            (OrderStatus.Confirmado, OrderStatus.Enviado) or
+            (OrderStatus.Enviado, OrderStatus.Entregado) or
+            (OrderStatus.Pendiente, OrderStatus.Cancelado) or
+            (OrderStatus.Confirmado, OrderStatus.Cancelado);
+
+    private static AdminOrderDetailResponse ToAdminDetail(Order order) =>
+        new(order.Id, order.OrderNumber, ToStatus(order.Status), ToPaymentMethod(order.PaymentMethod),
+            order.Currency, order.Subtotal, order.ShippingCost, order.Total,
+            DateTime.SpecifyKind(order.CreatedAtUtc, DateTimeKind.Utc),
+            order.Items.Select(item => new OrderItemResponse(
+                item.ProductVariantId, item.ProductName, item.Size, item.Color,
+                item.UnitPrice, item.Quantity, item.LineTotal)).ToList(),
+            new OrderDeliveryResponse(order.ContactName, order.Phone, order.Address, order.City, order.Note),
+            null,
+            order.User.Email ?? string.Empty);
 
     private async Task<OrderAttemptResult> TryCreateOrderAsync(
         string userId,
