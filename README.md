@@ -4,8 +4,6 @@ Tienda web de ropa, tenis y accesorios, construida como proyecto de portafolio c
 
 > **Esto es una demostración.** No se procesan pagos reales ni se envían productos. Usa siempre datos ficticios.
 
-**Demo en línea:** [pendiente: enlace cuando esté desplegada]
-
 ## Capturas
 
 | Catálogo | Detalle del producto |
@@ -110,8 +108,6 @@ npm run dev --prefix web
 
 API en `http://localhost:5008` y web en `http://localhost:3000`.
 
-**Usuario de prueba:** [pendiente: crea una cuenta ficticia y anótala aquí]
-
 ## Estado y alcance
 
 Hecho: catálogo, carrito, cuentas, checkout, pedidos, cancelación y panel de administración básico.
@@ -119,4 +115,4 @@ Fuera de esta versión: favoritos, pasarela de pago real y visor 3D.
 
 ---
 
-Proyecto de portafolio de **[tu nombre]**, estudiante de desarrollo de software en ITLA (República Dominicana).
+Proyecto de portafolio de Juan Emil Mambru Martinez , estudiante de desarrollo de software en ITLA (República Dominicana).
