@@ -115,4 +115,4 @@ Fuera de esta versión: favoritos, pasarela de pago real y visor 3D.
 
 ---
 
-Proyecto de portafolio de Juan Emil Mambru Martinez , estudiante de desarrollo de software en ITLA (República Dominicana).
+Proyecto de portafolio de Juan Emil Mambru Martinez, estudiante de desarrollo de software en ITLA (República Dominicana).
